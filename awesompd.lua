@@ -1,3 +1,10 @@
+---------------------------------------------------------------------------
+-- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt;
+-- @copyright 2010 Alexander Yakushev
+-- @release v0.5b
+---------------------------------------------------------------------------
+
+require('utf8')
 local naughty = naughty
 local awful = awful
 
@@ -14,6 +21,8 @@ awesompd.NOTIFY_REPEAT = 2
 awesompd.NOTIFY_RANDOM = 3
 awesompd.NOTIFY_SINGLE = 4
 awesompd.NOTIFY_CONSUME = 5
+awesompd.ESCAPE_SYMBOL_MAPPING = {}
+awesompd.ESCAPE_SYMBOL_MAPPING["&"] = "&amp;"
 
 -- Icons
 
@@ -393,6 +402,7 @@ function awesompd:notify_state(state_changed)
 end
 
 function awesompd:wrap_output(text)
+--   local t = utf8replace(text, awesompd.ESCAPE_SYMBOL_MAPPING)
    return '<span font="' .. self.font .. '">| ' .. text .. ' |</span>'
 end
 
@@ -421,24 +431,25 @@ function awesompd:set_text(text)
 end
 
 function awesompd.find_pattern(text, pattern, start)
-   return string.sub(text, string.find(text, pattern, start))
+   return utf8sub(text, string.find(text, pattern, start))
 end
 
 function awesompd:scroll_text(text)
-   if self.output_size > string.len(text) then
-      result = text
-   elseif self.scroll_pos + self.output_size - 1 > string.len(text) then 
-      text = text .. " "
-      result = string.sub(text, self.scroll_pos)
-      result = result .. string.sub(text, 1, self.scroll_pos + self.output_size - 1 - string.len(text))
-      self.scroll_pos = self.scroll_pos + 1
-      if self.scroll_pos > string.len(text) then
-	 self.scroll_pos = 1
+   local text = text
+   local result = text
+   if self.output_size < utf8len(text) then
+      text = text .. " - "
+      if self.scroll_pos + self.output_size - 1 > utf8len(text) then 
+	 result = utf8sub(text, self.scroll_pos)
+	 result = result .. utf8sub(text, 1, self.scroll_pos + self.output_size - 1 - utf8len(text))
+	 self.scroll_pos = self.scroll_pos + 1
+	 if self.scroll_pos > utf8len(text) then
+	    self.scroll_pos = 1
+	 end
+      else
+	 result = utf8sub(text, self.scroll_pos, self.scroll_pos + self.output_size - 1)
+	 self.scroll_pos = self.scroll_pos + 1
       end
-   else
-      text = text .. " "
-      result = string.sub(text, self.scroll_pos, self.scroll_pos + self.output_size - 1)
-      self.scroll_pos = self.scroll_pos + 1
    end
    return result
 end
@@ -492,7 +503,7 @@ function awesompd:update_track()
 	    self.recreate_list = true
 	 end
       else      
-	 local new_track = info_ar[1]
+	 local new_track = utf8replace(info_ar[1], awesompd.ESCAPE_SYMBOL_MAPPING)
 	 if new_track ~= self.text then
 	    self.text = new_track
 	    self.to_notify = true
