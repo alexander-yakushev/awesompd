@@ -14,14 +14,27 @@ awesompd.NOTIFY_REPEAT = 2
 awesompd.NOTIFY_RANDOM = 3
 awesompd.NOTIFY_SINGLE = 4
 awesompd.NOTIFY_CONSUME = 5
-awesompd.PLAY_ICON = "/home/unlogic/.config/awesome/play_icon.png"
-awesompd.PAUSE_ICON = "/home/unlogic/.config/awesome/pause_icon.png"
-awesompd.PLAY_PAUSE_ICON = "/home/unlogic/.config/awesome/play_pause_icon.png"
-awesompd.STOP_ICON = "/home/unlogic/.config/awesome/stop_icon.png"
-awesompd.NEXT_ICON = "/home/unlogic/.config/awesome/next_icon.png"
-awesompd.PREV_ICON = "/home/unlogic/.config/awesome/prev_icon.png"
-awesompd.CHECK_ICON = "/home/unlogic/.config/awesome/check_icon.png"
-awesompd.RADIO_ICON = "/home/unlogic/.config/awesome/radio_icon.png"
+
+function awesompd.try_load(file)
+   local f = io.open(file)
+   if f then
+      io.close(f)
+      return file
+   else
+      return nil
+   end
+end
+
+awesompd.ICONS = {}
+awesompd.ICONS.PLAY = awesompd.try_load("/home/unlogic/.config/awesome/play_icon.png")
+awesompd.ICONS.PAUSE = awesompd.try_load("/home/unlogic/.config/awesome/pause_icon.png")
+awesompd.ICONS.PLAY_PAUSE = awesompd.try_load("/home/unlogic/.config/awesome/play_pause_icon.png")
+awesompd.ICONS.STOP = awesompd.try_load("/home/unlogic/.config/awesome/stop_icon.png")
+awesompd.ICONS.NEXT = awesompd.try_load("/home/unlogic/.config/awesome/next_icon.png")
+awesompd.ICONS.PREV = awesompd.try_load("/home/unlogic/.config/awesome/prev_icon.png")
+awesompd.ICONS.CHECK = awesompd.try_load("/home/unlogic/.config/awesome/check_icon.png")
+awesompd.ICONS.RADIO = awesompd.try_load("/home/unlogic/.config/awesome/radio_icon.png")
+awesompd.ICONS_LOADED = true
 
 function awesompd:create()
 -- Initialization
@@ -224,17 +237,17 @@ end
 function awesompd:get_playback_menu()
    if self.recreate_playback then
       local new_menu = {}
-      table.insert(new_menu, { "Play\\Pause", self:command_toggle(), self.PLAY_PAUSE_ICON })
+      table.insert(new_menu, { "Play\\Pause", self:command_toggle(), self.ICONS.PLAY_PAUSE })
       if self.connected and self.status ~= "Stopped" then
 	 if self.current_number ~= 1 then
 	    table.insert(new_menu, { "Prev: " .. self.list_array[self.current_number - 1], 
-				     self:command_prev_track(), self.PREV_ICON })
+				     self:command_prev_track(), self.ICONS.PREV })
 	 end
 	 if self.current_number ~= table.getn(self.list_array) then
 	    table.insert(new_menu, { "Next: " .. self.list_array[self.current_number + 1], 
-				     self:command_next_track(), self.NEXT_ICON })
+				     self:command_next_track(), self.ICONS.NEXT })
 	 end
-	 table.insert(new_menu, { "Stop", self:command_stop(), self.STOP_ICON })
+	 table.insert(new_menu, { "Stop", self:command_stop(), self.ICONS.STOP })
       end
       self.recreate_playback = false
       playback_menu = new_menu
@@ -249,7 +262,7 @@ function awesompd:get_list_menu()
 	 new_menu[i] = {self.list_array[i], 
 			self:command_play_specific(i),
 			self.current_number == i and 
-			(self.status == "Playing" and self.PLAY_ICON or self.PAUSE_ICON)
+			(self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
 			or nil}
       end
       self.recreate_list = false
@@ -265,7 +278,7 @@ function awesompd:get_servers_menu()
 	 table.insert(new_menu, {"Server: " .. self.servers[i].server .. 
 				 ", port: " .. self.servers[i].port,
 			      function() self:change_server(i) end,
-			      i == self.current_server and self.RADIO_ICON or nil})
+			      i == self.current_server and self.ICONS.RADIO or nil})
       end
       self.servers_menu = new_menu
    end
@@ -277,13 +290,13 @@ function awesompd:get_options_menu()
       local new_menu = {}
       update_state()
       table.insert(new_menu, { "Repeat", self:command_repeat_toggle(), 
-			       self.state_repeat == "on" and self.CHECK_ICON or nil})
+			       self.state_repeat == "on" and self.ICONS.CHECK or nil})
       table.insert(new_menu, { "Random", self:command_random_toggle(), 
-			       self.state_random == "on" and self.CHECK_ICON or nil})
+			       self.state_random == "on" and self.ICONS.CHECK or nil})
       table.insert(new_menu, { "Single", self:command_single_toggle(), 
-			       self.state_single == "on" and self.CHECK_ICON or nil})
+			       self.state_single == "on" and self.ICONS.CHECK or nil})
       table.insert(new_menu, { "Consume", self:command_consume_toggle(), 
-			       self.state_consume == "on" and self.CHECK_ICON or nil})
+			       self.state_consume == "on" and self.ICONS.CHECK or nil})
       self.options_menu = new_menu
       self.recreate_options = false
       return self.options_menu
