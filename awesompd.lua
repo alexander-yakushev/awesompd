@@ -73,14 +73,32 @@ function awesompd:run()
    awful.hooks.timer.register(self.update_interval, function () self:update_track() end)
 end
 
+-- Slightly modified function awful.util.table.join
+function awesompd.ajoin(buttons)
+    local result = {}
+    for i = 1, table.getn(buttons) do
+        if buttons[i] then
+            for k, v in pairs(buttons[i]) do
+                if type(k) == "number" then
+                    table.insert(result, v)
+                else
+                    result[k] = v
+                end
+            end
+        end
+    end
+    return result
+ end
+
 -- Function that registers buttons on the widget.
 function awesompd:register_buttons(buttons)
    widget_buttons = {}
    for b=1,table.getn(buttons) do
       mods = self.split(buttons[b][1],"+")
-      table.insert(widget_buttons, button(mods, buttons[b][2], buttons[b][3]))
+      table.insert(widget_buttons, awful.button(mods, buttons[b][2], buttons[b][3]))
    end
-   self.widget:buttons(widget_buttons)
+--   self.widget:buttons(widget_buttons)
+   self.widget:buttons(self.ajoin(widget_buttons))
 end
 
 -- /// Group of mpc command functions ///
