@@ -233,7 +233,7 @@ function awesompd:command_show_menu()
 		   self:check_list()
 		   self:check_playlists()
 		   table.insert(new_menu, { "Playback", self:get_playback_menu() })
-		   -- table.insert(new_menu, { "Options",  self:get_options_menu() })
+		   table.insert(new_menu, { "Options",  self:get_options_menu() })
 		   table.insert(new_menu, { "List", self:get_list_menu() })
 		   -- table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
 		end
@@ -277,12 +277,14 @@ end
 function awesompd:get_list_menu()
    if self.recreate_list then
       local new_menu = {}
-      for i = 1, table.getn(self.list_array) do
-	 new_menu[i] = {self.list_array[i], 
-			self:command_play_specific(i),
-			self.current_number == i and 
-			(self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
-			or nil}
+      if self.list_array then
+	 for i = 1, table.getn(self.list_array) do
+	    new_menu[i] = {self.list_array[i], 
+			   self:command_play_specific(i),
+			   self.current_number == i and 
+			      (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
+			   or nil}
+	 end
       end
       self.recreate_list = false
       self.list_menu = new_menu
@@ -309,7 +311,7 @@ end
 function awesompd:get_options_menu()
    if self.recreate_options then 
       local new_menu = {}
-      update_state()
+      self:update_state()
       table.insert(new_menu, { "Repeat", self:command_repeat_toggle(), 
 			       self.state_repeat == "on" and self.ICONS.CHECK or nil})
       table.insert(new_menu, { "Random", self:command_random_toggle(), 
@@ -331,7 +333,11 @@ function awesompd:check_list()
    bus:close()
    if info ~= self.list_line then
       self.list_line = info
-      self.list_array = self.split(info,"\n")
+      if string.len(info) > 0 then
+	 self.list_array = self.split(info,"\n")
+      else
+	 self.list_array = {}
+      end
       self.recreate_menu = true
       self.recreate_list = true
    end
@@ -561,6 +567,7 @@ function awesompd:update_state()
       else
 	 self.state_consume = "off"
       end
+      self.recreate_menu = true
       self.recreate_options = true
    end
 end
