@@ -499,6 +499,7 @@ function awesompd:update_track()
 	 if self.status ~= "Stopped" then
 	    self.status = "Stopped"
 	    self.current_number = 0
+	    self.recreate_menu = true
 	    self.recreate_playback = true
 	    self.recreate_list = true
 	 end
@@ -507,6 +508,7 @@ function awesompd:update_track()
 	 if new_track ~= self.text then
 	    self.text = new_track
 	    self.to_notify = true
+	    self.recreate_menu = true
 	    self.recreate_playback = true
 	    self.recreate_list = true
 	    self.current_number = tonumber(self.find_pattern(info_ar[2],"%d+"))
