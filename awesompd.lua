@@ -15,6 +15,10 @@ awesompd.NOTIFY_RANDOM = 3
 awesompd.NOTIFY_SINGLE = 4
 awesompd.NOTIFY_CONSUME = 5
 
+-- Icons
+
+-- Helper function for loading icons.
+-- Checks if an icon exists, and if it does, returns the path to icon, nil otherwise.
 function awesompd.try_load(file)
    local f = io.open(file)
    if f then
@@ -36,6 +40,7 @@ awesompd.ICONS.CHECK = awesompd.try_load("/home/unlogic/.config/awesome/check_ic
 awesompd.ICONS.RADIO = awesompd.try_load("/home/unlogic/.config/awesome/radio_icon.png")
 awesompd.ICONS_LOADED = true
 
+-- Function that returns a new awesompd object
 function awesompd:create()
 -- Initialization
    instance = {}
@@ -54,6 +59,7 @@ function awesompd:create()
    for s = 1, screen.count() do
       instance.promptbox[s] = awful.widget.prompt({ layout = awful.widget.layout.horizontal.leftright })      
    end
+   instance.recreate_menu = true
    instance.recreate_playback = true
    instance.recreate_list = true
    instance.recreate_servers = true
@@ -79,6 +85,7 @@ function awesompd:create()
    return instance
 end
 
+-- Registers timers for the widget
 function awesompd:run()
    self:update_track()
    self:update_state()
@@ -110,7 +117,6 @@ function awesompd:register_buttons(buttons)
       mods = self.split(buttons[b][1],"+")
       table.insert(widget_buttons, awful.button(mods, buttons[b][2], buttons[b][3]))
    end
---   self.widget:buttons(widget_buttons)
    self.widget:buttons(self.ajoin(widget_buttons))
 end
 
@@ -209,31 +215,34 @@ end
 function awesompd:command_show_menu()
    return function()
 	     self:remove_hint()
-	     self:check_list()
-	     self:check_playlists()
-	     if self.recreate_playback or
-		self.recreate_options or
-		self.recreate_list then
-		--		self.recreate_playlists then
+	     if self.recreate_menu then
+		local new_menu = {}
 		if self.main_menu ~= nil then
 		   self.main_menu:hide()
 		end
-		local new_menu = {}
 		if self.connected then
+		   self:check_list()
+		   self:check_playlists()
 		   table.insert(new_menu, { "Playback", self:get_playback_menu() })
---		   table.insert(new_menu, { "Options",  self:get_options_menu() })
+		   -- table.insert(new_menu, { "Options",  self:get_options_menu() })
 		   table.insert(new_menu, { "List", self:get_list_menu() })
+		   -- table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
 		end
 		table.insert(new_menu, { "Servers", self:get_servers_menu() })
---		new_menu[3] = { "Playlists", self:get_playlists_menu() }
 		self.main_menu = awful.menu({ items = new_menu,
-					 width = 300
-				      })
+					      width = 300
+					   })
+		self.recreate_menu = false
 	     end
 	     self.main_menu:toggle()
 	  end
 end
 
+-- Returns the playback menu. Menu contains of:
+-- Play\Pause - always
+-- Previous - if the current track is not the first in the list and playback is not stopped
+-- Next - if the current track is not the last in the list and playback is not stopped
+-- Stop - if the playback is not stopped
 function awesompd:get_playback_menu()
    if self.recreate_playback then
       local new_menu = {}
@@ -255,6 +264,7 @@ function awesompd:get_playback_menu()
    return playback_menu
 end
 
+-- Returns the current playlist menu. Menu consists of all elements in the playlist.
 function awesompd:get_list_menu()
    if self.recreate_list then
       local new_menu = {}
@@ -271,6 +281,7 @@ function awesompd:get_list_menu()
    return self.list_menu
 end
 
+-- Returns the server menu. Menu consists of all servers specified by user during initialization.
 function awesompd:get_servers_menu()
    if self.recreate_servers then
       local new_menu = {}
@@ -285,6 +296,7 @@ function awesompd:get_servers_menu()
    return self.servers_menu
 end
 
+-- Returns the options menu. Menu works like checkboxes for it's elements.
 function awesompd:get_options_menu()
    if self.recreate_options then 
       local new_menu = {}
@@ -303,6 +315,7 @@ function awesompd:get_options_menu()
    end
 end
 
+-- Checks if the current playlist has changed after the last check.
 function awesompd:check_list()
    local bus = io.popen(self:mpcquery() .. "playlist")
    local info = bus:read("*all")
@@ -310,23 +323,28 @@ function awesompd:check_list()
    if info ~= self.list_line then
       self.list_line = info
       self.list_array = self.split(info,"\n")
+      self.recreate_menu = true
       self.recreate_list = true
    end
 end
 
+-- Checks if the collection of playlists changed after the last check.
 function awesompd:check_playlists()
    local bus = io.popen(self:mpcquery() .. "lsplaylists")
    local info = bus:read("*all")
    bus:close()
    if info ~= self.playlists_line then
       self.playlists_line = info
+      self.recreate_menu = true
       self.recreate_playlists = true
    end
 end
 
+-- Changes the current server to the specified one.
 function awesompd:change_server(server_number)
    self.current_server = server_number
    self:remove_hint()
+   self.recreate_menu = true
    self.recreate_playback = true
    self.recreate_list = true
    self.recreate_playlists = true
@@ -437,9 +455,14 @@ function awesompd:check_notify()
    end
 end
 
+function awesompd:notify_connect()
+   self:add_hint("Connected", "Connection established to " .. self.servers[self.current_server].server ..
+		 " on port " .. self.servers[self.current_server].port)
+end
+
 function awesompd:notify_disconnect()
-      self:add_hint("Disconnected", "Cannot connect to " .. self.servers[self.current_server].server ..
-		    " on port " .. self.servers[self.current_server].port)
+   self:add_hint("Disconnected", "Cannot connect to " .. self.servers[self.current_server].server ..
+		 " on port " .. self.servers[self.current_server].port)
 end
 
 function awesompd:update_track()
@@ -452,73 +475,81 @@ function awesompd:update_track()
       if self.connected then
 	 self:notify_disconnect()
 	 self.connected = false
-	 self.recreate_list = true
+	 self.recreate_menu = true
       end
-   elseif string.find(info_ar[1],"volume:") then
-      self.connected = true
-      self.text = "MPD stopped"
-      if self.status ~= "Stopped" then
-	 self.status = "Stopped"
-	 self.current_number = 0
-	 self.recreate_playback = true
-	 self.recreate_list = true
+   else
+      if not self.connected then
+	 self:notify_connect()
+	 self.connected = true
+	 self.recreate_menu = true
       end
-   else      
-      self.connected = true
-      local new_track = info_ar[1]
-      if new_track ~= self.text then
-	 self.text = new_track
-	 self.to_notify = true
-	 self.recreate_playback = true
-	 self.recreate_list = true
-	 self.current_number = tonumber(self.find_pattern(info_ar[2],"%d+"))
+      if string.find(info_ar[1],"volume:") then
+	 self.text = "MPD stopped"
+	 if self.status ~= "Stopped" then
+	    self.status = "Stopped"
+	    self.current_number = 0
+	    self.recreate_playback = true
+	    self.recreate_list = true
+	 end
+      else      
+	 local new_track = info_ar[1]
+	 if new_track ~= self.text then
+	    self.text = new_track
+	    self.to_notify = true
+	    self.recreate_playback = true
+	    self.recreate_list = true
+	    self.current_number = tonumber(self.find_pattern(info_ar[2],"%d+"))
+	 end
+	 local tmp_pst = string.find(info_ar[2],"%d+%:%d+%/")
+	 local progress = self.find_pattern(info_ar[2],"%#%d+/%d+") .. " " .. string.sub(info_ar[2],tmp_pst)   
+	 newstatus = "Playing"
+	 if string.find(info_ar[2],"paused") then
+	    newstatus = "Paused"
+	 end
+	 if newstatus ~= self.status then
+	    self.to_notify = true
+	    self.recreate_list = true
+	 end
+	 self.status = newstatus
+	 self.status_text = self.status .. " " .. progress
       end
-      local tmp_pst = string.find(info_ar[2],"%d+%:%d+%/")
-      local progress = self.find_pattern(info_ar[2],"%#%d+/%d+") .. " " .. string.sub(info_ar[2],tmp_pst)   
-      newstatus = "Playing"
-      if string.find(info_ar[2],"paused") then
-	 newstatus = "Paused"
-      end
-      if newstatus ~= self.status then
-	 self.to_notify = true
-	 self.recreate_list = true
-      end
-      self.status = newstatus
-      self.status_text = self.status .. " " .. progress
    end
+   
 end
 
 function awesompd:update_state()
-   local bus = io.popen(self:mpcquery())
-   local info = bus:read("*all")
-   bus:close()
-   local info_ar = self.split(info,"\n")
-   state_string = info_ar[3]
-   if string.find(info_ar[1],"volume:") then
-      state_string = info_ar[1]
+   if self.connected then
+      local bus = io.popen(self:mpcquery())
+      local info = bus:read("*all")
+      bus:close()
+      local info_ar = self.split(info,"\n")
+      state_string = info_ar[3]
+      if string.find(info_ar[1],"volume:") then
+	 state_string = info_ar[1]
+      end
+      self.state_volume = self.find_pattern(state_string,"%d+%% ")
+      if string.find(state_string,"repeat: on") then
+	 self.state_repeat = "on"
+      else
+	 self.state_repeat = "off"
+      end
+      if string.find(state_string,"random: on") then
+	 self.state_random = "on"
+      else
+	 self.state_random = "off"
+      end
+      if string.find(state_string,"single: on") then
+	 self.state_single = "on"
+      else
+	 self.state_single = "off"
+      end
+      if string.find(state_string,"consume: on") then
+	 self.state_consume = "on"
+      else
+	 self.state_consume = "off"
+      end
+      self.recreate_options = true
    end
-   self.state_volume = self.find_pattern(state_string,"%d+%% ")
-   if string.find(state_string,"repeat: on") then
-      self.state_repeat = "on"
-   else
-      self.state_repeat = "off"
-   end
-   if string.find(state_string,"random: on") then
-      self.state_random = "on"
-   else
-      self.state_random = "off"
-   end
-   if string.find(state_string,"single: on") then
-      self.state_single = "on"
-   else
-      self.state_single = "off"
-   end
-   if string.find(state_string,"consume: on") then
-      self.state_consume = "on"
-   else
-      self.state_consume = "off"
-   end
-   self.recreate_options = true
 end
 
 function awesompd:run_prompt(welcome,hook)
