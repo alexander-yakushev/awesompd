@@ -334,7 +334,7 @@ function awesompd:check_list()
    if info ~= self.list_line then
       self.list_line = info
       if string.len(info) > 0 then
-	 self.list_array = self.split(info,"\n")
+	 self.list_array = self.split(string.sub(info,1,string.len(info)),"\n")
       else
 	 self.list_array = {}
       end
@@ -419,11 +419,8 @@ function awesompd.split (s,t)
 		l[l.n] = s
 	     end
    local p = "%s*(.-)%s*"..t.."%s*"
-   s = string.gsub(s,"^%s+","")
-   s = string.gsub(s,"%s+$","")
    s = string.gsub(s,p,f)
    l.n = l.n + 1
-   l[l.n] = string.gsub(s,"(%s%s*)$","")
    return l
 end
 
