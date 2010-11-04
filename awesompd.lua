@@ -216,6 +216,14 @@ function awesompd:command_load_playlist(name)
 	  end
 end
 
+function awesompd:command_replace_playlist(name)
+   return function()
+	     self:command("clear")
+	     self:command("load " .. name)
+	     self:command("play 1", self.update_track)
+	  end
+end
+
 function awesompd:command_echo_prompt()
    return function()
 	     self:run_prompt("Sample text: ",function(s)
@@ -305,8 +313,10 @@ function awesompd:get_playlists_menu()
       local new_menu = {}
       if table.getn(self.playlists_array) > 0 then
 	 for i = 1, table.getn(self.playlists_array) do
-	    new_menu[i] = { self.playlists_array[i], 
-			    self:command_load_playlist(self.playlists_array[i]) }
+	    local submenu = {}
+	    submenu[1] = { "Add to current", self:command_load_playlist(self.playlists_array[i]) }
+	    submenu[2] = { "Replace current", self:command_replace_playlist(self.playlists_array[i]) }
+	    new_menu[i] = { self.playlists_array[i], submenu }
 	 end
 	 table.insert(new_menu, {"", ""}) -- This is a separator
       end
