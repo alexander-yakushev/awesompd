@@ -293,12 +293,15 @@ function awesompd:get_list_menu()
    if self.recreate_list then
       local new_menu = {}
       if self.list_array then
-	 for i = 1, table.getn(self.list_array) do
-	    new_menu[i] = { awesompd.protect_string(self.list_array[i]),
-			    self:command_play_specific(i),
-			    self.current_number == i and 
-			       (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
-			    or nil}
+	 local total_count = table.getn(self.list_array) 
+	 local start_num = (self.current_number - 15 > 0) and self.current_number - 15 or 1
+	 local end_num = (self.current_number + 15 < total_count ) and self.current_number + 15 or total_count
+	 for i = start_num, end_num do
+	    table.insert(new_menu, { awesompd.protect_string(self.list_array[i]),
+				     self:command_play_specific(i),
+				     self.current_number == i and 
+					(self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
+				     or nil} )
 	 end
       end
       self.recreate_list = false
@@ -306,7 +309,7 @@ function awesompd:get_list_menu()
    end
    return self.list_menu
 end
-
+	     
 -- Returns the playlists menu. Menu consists of all files in the playlist folder.
 function awesompd:get_playlists_menu()
    if self.recreate_playlists then
