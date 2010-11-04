@@ -97,7 +97,7 @@ end
 -- Registers timers for the widget
 function awesompd:run()
    self:update_track()
-   self:update_state()
+--   self:update_state()
    self:check_playlists()
    awful.hooks.timer.register(1, function () self:update_widget() end)
    awful.hooks.timer.register(self.update_interval, function () self:update_track() end)
@@ -170,42 +170,42 @@ end
 
 function awesompd:command_volume_up()
    return function()
-	     self:command("volume +5",self.update_state)
+	     self:command("volume +5",self.update_track)
 	     self:notify_state(self.NOTIFY_VOLUME)
 	  end
 end
 
 function awesompd:command_volume_down()
    return function()
-	     self:command("volume -5",self.update_state)
+	     self:command("volume -5",self.update_track)
 	     self:notify_state(self.NOTIFY_VOLUME)
 	  end
 end
 
 function awesompd:command_random_toggle()
    return function()
-	     self:command("random",self.update_state)
+	     self:command("random",self.update_track)
 	     self:notify_state(self.NOTIFY_RANDOM)
 	  end
 end
 
 function awesompd:command_repeat_toggle()
    return function()
-	     self:command("repeat",self.update_state)
+	     self:command("repeat",self.update_track)
 	     self:notify_state(self.NOTIFY_REPEAT)
 	  end
 end
 
 function awesompd:command_single_toggle()
    return function()
-	     self:command("single",self.update_state)
+	     self:command("single",self.update_track)
 	     self:notify_state(self.NOTIFY_SINGLE)
 	  end
 end
 
 function awesompd:command_consume_toggle()
    return function()
-	     self:command("consume",self.update_state)
+	     self:command("consume",self.update_track)
 	     self:notify_state(self.NOTIFY_CONSUME)
 	  end
 end
@@ -336,7 +336,7 @@ end
 function awesompd:get_options_menu()
    if self.recreate_options then 
       local new_menu = {}
-      self:update_state()
+--      self:update_state()
       table.insert(new_menu, { "Repeat", self:command_repeat_toggle(), 
 			       self.state_repeat == "on" and self.ICONS.CHECK or nil})
       table.insert(new_menu, { "Random", self:command_random_toggle(), 
@@ -346,9 +346,9 @@ function awesompd:get_options_menu()
       table.insert(new_menu, { "Consume", self:command_consume_toggle(), 
 			       self.state_consume == "on" and self.ICONS.CHECK or nil})
       self.options_menu = new_menu
-      self.recreate_options = false
-      return self.options_menu
+      self.recreate_options = false      
    end
+   return self.options_menu
 end
 
 -- Checks if the current playlist has changed after the last check.
@@ -395,7 +395,7 @@ function awesompd:change_server(server_number)
    self.recreate_playlists = true
    self.recreate_servers = true
    self:update_track()
-   self:update_state()
+--   self:update_state()
 end
 
 -- /// End of menu generation functions ///
@@ -529,6 +529,7 @@ function awesompd:update_track()
 	 self.connected = true
 	 self.recreate_menu = true
       end
+      self:update_state(info)
       if string.find(info_ar[1],"volume:") then
 	 self.text = "MPD stopped"
 	 if self.status ~= "Stopped" then
@@ -565,40 +566,36 @@ function awesompd:update_track()
    
 end
 
-function awesompd:update_state()
-   if self.connected then
-      local bus = io.popen(self:mpcquery())
-      local info = bus:read("*all")
-      bus:close()
-      local info_ar = self.split(info,"\n")
-      state_string = info_ar[3]
-      if string.find(info_ar[1],"volume:") then
-	 state_string = info_ar[1]
-      end
-      self.state_volume = self.find_pattern(state_string,"%d+%% ")
-      if string.find(state_string,"repeat: on") then
-	 self.state_repeat = "on"
-      else
-	 self.state_repeat = "off"
-      end
-      if string.find(state_string,"random: on") then
-	 self.state_random = "on"
-      else
-	 self.state_random = "off"
-      end
-      if string.find(state_string,"single: on") then
-	 self.state_single = "on"
-      else
-	 self.state_single = "off"
-      end
-      if string.find(state_string,"consume: on") then
-	 self.state_consume = "on"
-      else
-	 self.state_consume = "off"
-      end
+function awesompd:update_state(state_string)
+   self.state_volume = self.find_pattern(state_string,"%d+%% ")
+   if string.find(state_string,"repeat: on") then
+      self.state_repeat = self:check_set_state(self.state_repeat, "on")
+   else
+      self.state_repeat = self:check_set_state(self.state_repeat, "off")
+   end
+   if string.find(state_string,"random: on") then
+      self.state_random = self:check_set_state(self.state_random, "on")
+   else
+      self.state_random = self:check_set_state(self.state_random, "off")
+   end
+   if string.find(state_string,"single: on") then
+      self.state_single = self:check_set_state(self.state_single, "on")
+   else
+      self.state_single = self:check_set_state(self.state_single, "off")
+   end
+   if string.find(state_string,"consume: on") then
+      self.state_consume = self:check_set_state(self.state_consume, "on")
+   else
+      self.state_consume = self:check_set_state(self.state_consume, "off")
+   end
+end
+
+function awesompd:check_set_state(statevar, val)
+   if statevar ~= val then
       self.recreate_menu = true
       self.recreate_options = true
    end
+   return val
 end
 
 function awesompd:run_prompt(welcome,hook)
