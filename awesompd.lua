@@ -38,16 +38,17 @@ function awesompd.try_load(file)
    end
 end
 
-awesompd.ICONS = {}
-awesompd.ICONS.PLAY = awesompd.try_load("/home/unlogic/.config/awesome/play_icon.png")
-awesompd.ICONS.PAUSE = awesompd.try_load("/home/unlogic/.config/awesome/pause_icon.png")
-awesompd.ICONS.PLAY_PAUSE = awesompd.try_load("/home/unlogic/.config/awesome/play_pause_icon.png")
-awesompd.ICONS.STOP = awesompd.try_load("/home/unlogic/.config/awesome/stop_icon.png")
-awesompd.ICONS.NEXT = awesompd.try_load("/home/unlogic/.config/awesome/next_icon.png")
-awesompd.ICONS.PREV = awesompd.try_load("/home/unlogic/.config/awesome/prev_icon.png")
-awesompd.ICONS.CHECK = awesompd.try_load("/home/unlogic/.config/awesome/check_icon.png")
-awesompd.ICONS.RADIO = awesompd.try_load("/home/unlogic/.config/awesome/radio_icon.png")
-awesompd.ICONS_LOADED = true
+function awesompd.load_icons(path)
+   awesompd.ICONS = {}
+   awesompd.ICONS.PLAY = awesompd.try_load(path .. "/play_icon.png")
+   awesompd.ICONS.PAUSE = awesompd.try_load(path .. "/pause_icon.png")
+   awesompd.ICONS.PLAY_PAUSE = awesompd.try_load(path .. "/play_pause_icon.png")
+   awesompd.ICONS.STOP = awesompd.try_load(path .. "/stop_icon.png")
+   awesompd.ICONS.NEXT = awesompd.try_load(path .. "/next_icon.png")
+   awesompd.ICONS.PREV = awesompd.try_load(path .. "/prev_icon.png")
+   awesompd.ICONS.CHECK = awesompd.try_load(path .. "/check_icon.png")
+   awesompd.ICONS.RADIO = awesompd.try_load(path .. "/radio_icon.png")
+end
 
 -- Function that returns a new awesompd object
 function awesompd:create()
@@ -74,7 +75,7 @@ function awesompd:create()
    instance.recreate_servers = true
    instance.recreate_options = true
    instance.current_number = 0
-   instance.menu_shown = false
+   instance.menu_shown = false 
 
 -- Default user options
    instance.servers = { { server = "localhost", port = 6600 } }
@@ -82,6 +83,7 @@ function awesompd:create()
    instance.scrolling = true
    instance.output_size = 30
    instance.update_interval = 10
+   instance.path_to_icons = ""
 
 -- Widget configuration
    instance.widget:add_signal("mouse::enter", function(c)
@@ -97,7 +99,9 @@ end
 -- Registers timers for the widget
 function awesompd:run()
    self:update_track()
-   self:update_state()
+--   self:update_state()
+   self:check_playlists()
+   self.load_icons(self.path_to_icons)
    awful.hooks.timer.register(1, function () self:update_widget() end)
    awful.hooks.timer.register(self.update_interval, function () self:update_track() end)
 end
@@ -169,43 +173,57 @@ end
 
 function awesompd:command_volume_up()
    return function()
-	     self:command("volume +5",self.update_state)
+	     self:command("volume +5",self.update_track)
 	     self:notify_state(self.NOTIFY_VOLUME)
 	  end
 end
 
 function awesompd:command_volume_down()
    return function()
-	     self:command("volume -5",self.update_state)
+	     self:command("volume -5",self.update_track)
 	     self:notify_state(self.NOTIFY_VOLUME)
 	  end
 end
 
 function awesompd:command_random_toggle()
    return function()
-	     self:command("random",self.update_state)
+	     self:command("random",self.update_track)
 	     self:notify_state(self.NOTIFY_RANDOM)
 	  end
 end
 
 function awesompd:command_repeat_toggle()
    return function()
-	     self:command("repeat",self.update_state)
+	     self:command("repeat",self.update_track)
 	     self:notify_state(self.NOTIFY_REPEAT)
 	  end
 end
 
 function awesompd:command_single_toggle()
    return function()
-	     self:command("single",self.update_state)
+	     self:command("single",self.update_track)
 	     self:notify_state(self.NOTIFY_SINGLE)
 	  end
 end
 
 function awesompd:command_consume_toggle()
    return function()
-	     self:command("consume",self.update_state)
+	     self:command("consume",self.update_track)
 	     self:notify_state(self.NOTIFY_CONSUME)
+	  end
+end
+
+function awesompd:command_load_playlist(name)
+   return function()
+	     self:command("load " .. name, function() self.recreate_menu = true end)
+	  end
+end
+
+function awesompd:command_replace_playlist(name)
+   return function()
+	     self:command("clear")
+	     self:command("load " .. name)
+	     self:command("play 1", self.update_track)
 	  end
 end
 
@@ -235,7 +253,7 @@ function awesompd:command_show_menu()
 		   table.insert(new_menu, { "Playback", self:get_playback_menu() })
 		   table.insert(new_menu, { "Options",  self:get_options_menu() })
 		   table.insert(new_menu, { "List", self:get_list_menu() })
-		   -- table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
+		   table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
 		end
 		table.insert(new_menu, { "Servers", self:get_servers_menu() })
 		self.main_menu = awful.menu({ items = new_menu,
@@ -258,11 +276,11 @@ function awesompd:get_playback_menu()
       table.insert(new_menu, { "Play\\Pause", self:command_toggle(), self.ICONS.PLAY_PAUSE })
       if self.connected and self.status ~= "Stopped" then
 	 if self.current_number ~= 1 then
-	    table.insert(new_menu, { "Prev: " .. self.list_array[self.current_number - 1], 
+	    table.insert(new_menu, { "Prev: " .. awesompd.protect_string(self.list_array[self.current_number - 1]), 
 				     self:command_prev_track(), self.ICONS.PREV })
 	 end
 	 if self.current_number ~= table.getn(self.list_array) then
-	    table.insert(new_menu, { "Next: " .. self.list_array[self.current_number + 1], 
+	    table.insert(new_menu, { "Next: " .. awesompd.protect_string(self.list_array[self.current_number + 1]), 
 				     self:command_next_track(), self.ICONS.NEXT })
 	 end
 	 table.insert(new_menu, { "Stop", self:command_stop(), self.ICONS.STOP })
@@ -278,18 +296,41 @@ function awesompd:get_list_menu()
    if self.recreate_list then
       local new_menu = {}
       if self.list_array then
-	 for i = 1, table.getn(self.list_array) do
-	    new_menu[i] = {self.list_array[i], 
-			   self:command_play_specific(i),
-			   self.current_number == i and 
-			      (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
-			   or nil}
+	 local total_count = table.getn(self.list_array) 
+	 local start_num = (self.current_number - 15 > 0) and self.current_number - 15 or 1
+	 local end_num = (self.current_number + 15 < total_count ) and self.current_number + 15 or total_count
+	 for i = start_num, end_num do
+	    table.insert(new_menu, { awesompd.protect_string(self.list_array[i]),
+				     self:command_play_specific(i),
+				     self.current_number == i and 
+					(self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
+				     or nil} )
 	 end
       end
       self.recreate_list = false
       self.list_menu = new_menu
    end
    return self.list_menu
+end
+	     
+-- Returns the playlists menu. Menu consists of all files in the playlist folder.
+function awesompd:get_playlists_menu()
+   if self.recreate_playlists then
+      local new_menu = {}
+      if table.getn(self.playlists_array) > 0 then
+	 for i = 1, table.getn(self.playlists_array) do
+	    local submenu = {}
+	    submenu[1] = { "Add to current", self:command_load_playlist(self.playlists_array[i]) }
+	    submenu[2] = { "Replace current", self:command_replace_playlist(self.playlists_array[i]) }
+	    new_menu[i] = { self.playlists_array[i], submenu }
+	 end
+	 table.insert(new_menu, {"", ""}) -- This is a separator
+      end
+      table.insert(new_menu, { "Refresh", function() self:check_playlists() end })
+      self.recreate_playlists = false
+      self.playlists_menu = new_menu
+   end
+   return self.playlists_menu
 end
 
 -- Returns the server menu. Menu consists of all servers specified by user during initialization.
@@ -311,7 +352,7 @@ end
 function awesompd:get_options_menu()
    if self.recreate_options then 
       local new_menu = {}
-      self:update_state()
+--      self:update_state()
       table.insert(new_menu, { "Repeat", self:command_repeat_toggle(), 
 			       self.state_repeat == "on" and self.ICONS.CHECK or nil})
       table.insert(new_menu, { "Random", self:command_random_toggle(), 
@@ -321,9 +362,9 @@ function awesompd:get_options_menu()
       table.insert(new_menu, { "Consume", self:command_consume_toggle(), 
 			       self.state_consume == "on" and self.ICONS.CHECK or nil})
       self.options_menu = new_menu
-      self.recreate_options = false
-      return self.options_menu
+      self.recreate_options = false      
    end
+   return self.options_menu
 end
 
 -- Checks if the current playlist has changed after the last check.
@@ -350,6 +391,11 @@ function awesompd:check_playlists()
    bus:close()
    if info ~= self.playlists_line then
       self.playlists_line = info
+      if string.len(info) > 0 then
+	 self.playlists_array = self.split(info,"\n")
+      else
+	 self.playlists_array = {}
+      end
       self.recreate_menu = true
       self.recreate_playlists = true
    end
@@ -365,7 +411,7 @@ function awesompd:change_server(server_number)
    self.recreate_playlists = true
    self.recreate_servers = true
    self:update_track()
-   self:update_state()
+--   self:update_state()
 end
 
 -- /// End of menu generation functions ///
@@ -408,7 +454,6 @@ function awesompd:notify_state(state_changed)
 end
 
 function awesompd:wrap_output(text)
---   local t = utf8replace(text, awesompd.ESCAPE_SYMBOL_MAPPING)
    return '<span font="' .. self.font .. '">| ' .. text .. ' |</span>'
 end
 
@@ -497,6 +542,7 @@ function awesompd:update_track()
 	 self.connected = true
 	 self.recreate_menu = true
       end
+      self:update_state(info)
       if string.find(info_ar[1],"volume:") then
 	 self.text = "MPD stopped"
 	 if self.status ~= "Stopped" then
@@ -507,7 +553,7 @@ function awesompd:update_track()
 	    self.recreate_list = true
 	 end
       else      
-	 local new_track = utf8replace(info_ar[1], awesompd.ESCAPE_SYMBOL_MAPPING)
+	 local new_track = awesompd.protect_string(info_ar[1])
 	 if new_track ~= self.text then
 	    self.text = new_track
 	    self.to_notify = true
@@ -533,44 +579,44 @@ function awesompd:update_track()
    
 end
 
-function awesompd:update_state()
-   if self.connected then
-      local bus = io.popen(self:mpcquery())
-      local info = bus:read("*all")
-      bus:close()
-      local info_ar = self.split(info,"\n")
-      state_string = info_ar[3]
-      if string.find(info_ar[1],"volume:") then
-	 state_string = info_ar[1]
-      end
-      self.state_volume = self.find_pattern(state_string,"%d+%% ")
-      if string.find(state_string,"repeat: on") then
-	 self.state_repeat = "on"
-      else
-	 self.state_repeat = "off"
-      end
-      if string.find(state_string,"random: on") then
-	 self.state_random = "on"
-      else
-	 self.state_random = "off"
-      end
-      if string.find(state_string,"single: on") then
-	 self.state_single = "on"
-      else
-	 self.state_single = "off"
-      end
-      if string.find(state_string,"consume: on") then
-	 self.state_consume = "on"
-      else
-	 self.state_consume = "off"
-      end
+function awesompd:update_state(state_string)
+   self.state_volume = self.find_pattern(state_string,"%d+%% ")
+   if string.find(state_string,"repeat: on") then
+      self.state_repeat = self:check_set_state(self.state_repeat, "on")
+   else
+      self.state_repeat = self:check_set_state(self.state_repeat, "off")
+   end
+   if string.find(state_string,"random: on") then
+      self.state_random = self:check_set_state(self.state_random, "on")
+   else
+      self.state_random = self:check_set_state(self.state_random, "off")
+   end
+   if string.find(state_string,"single: on") then
+      self.state_single = self:check_set_state(self.state_single, "on")
+   else
+      self.state_single = self:check_set_state(self.state_single, "off")
+   end
+   if string.find(state_string,"consume: on") then
+      self.state_consume = self:check_set_state(self.state_consume, "on")
+   else
+      self.state_consume = self:check_set_state(self.state_consume, "off")
+   end
+end
+
+function awesompd:check_set_state(statevar, val)
+   if statevar ~= val then
       self.recreate_menu = true
       self.recreate_options = true
    end
+   return val
 end
 
 function awesompd:run_prompt(welcome,hook)
    awful.prompt.run({ prompt = welcome },
 		    self.promptbox[mouse.screen].widget,
 		    hook)
+end
+
+function awesompd.protect_string(str)
+   return utf8replace(str, awesompd.ESCAPE_SYMBOL_MAPPING)
 end

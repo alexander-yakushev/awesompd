@@ -1,3 +1,0 @@
-#!/bin/bash
-cp -f ~/work/projects/Lua/awesompd/awesompd.lua ~/.config/awesome/awesompd.lua
-cp -f ~/work/projects/Lua/awesompd/utf8.lua ~/.config/awesome/utf8.lua
