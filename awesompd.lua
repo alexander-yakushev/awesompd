@@ -102,8 +102,12 @@ function awesompd:run()
 --   self:update_state()
    self:check_playlists()
    self.load_icons(self.path_to_icons)
-   awful.hooks.timer.register(1, function () self:update_widget() end)
-   awful.hooks.timer.register(self.update_interval, function () self:update_track() end)
+   self.update_widget_timer = timer({ timeout = 1 })
+   self.update_widget_timer:add_signal("timeout", function () self:update_widget() end)
+   self.update_widget_timer:start()
+   self.update_track_timer = timer({ timeout = 1 })
+   self.update_track_timer:add_signal("timeout", function () self:update_track() end)
+   self.update_track_timer:start()
 end
 
 -- Slightly modified function awful.util.table.join
