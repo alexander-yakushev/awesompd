@@ -100,6 +100,10 @@ end
 -- instead of bytes
 function utf8sub (s, i, j)
    j = j or -1
+
+   if i == nil then
+      return ""
+   end
    
    local pos = 1
    local bytes = string.len(s)
