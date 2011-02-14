@@ -131,7 +131,12 @@ function awesompd.ajoin(buttons)
 function awesompd:register_buttons(buttons)
    widget_buttons = {}
    for b=1,table.getn(buttons) do
-      mods = self.split(buttons[b][1],"+")
+      if type(buttons[b][1]) == "string" then
+         mods = { buttons[b][1] }
+      else
+         mods = buttons[b][1]
+      end
+--      mods = self.split(buttons[b][1],"+")
       table.insert(widget_buttons, awful.button(mods, buttons[b][2], buttons[b][3]))
    end
    self.widget:buttons(self.ajoin(widget_buttons))
