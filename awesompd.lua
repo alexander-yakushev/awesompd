@@ -65,10 +65,10 @@ function awesompd:create()
    instance.status_text = "Stopped"
    instance.to_notify = false
    instance.connected = true
-   instance.promptbox = {}
-   for s = 1, screen.count() do
-      instance.promptbox[s] = awful.widget.prompt({ layout = awful.widget.layout.horizontal.leftright })      
-   end
+--   instance.promptbox = {}
+--   for s = 1, screen.count() do
+--      instance.promptbox[s] = awful.widget.prompt({ layout = awful.widget.layout.horizontal.leftright })      
+--   end
    instance.recreate_menu = true
    instance.recreate_playback = true
    instance.recreate_list = true
@@ -263,6 +263,7 @@ function awesompd:command_show_menu()
 		   table.insert(new_menu, { "Options",  self:get_options_menu() })
 		   table.insert(new_menu, { "List", self:get_list_menu() })
 		   table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
+                   table.insert(new_menu, { "Jamendo Top 100", self:add_jamendo_top() })
 		end
 		table.insert(new_menu, { "Servers", self:get_servers_menu() })
 		self.main_menu = awful.menu({ items = new_menu,
@@ -272,6 +273,38 @@ function awesompd:command_show_menu()
 	     end
 	     self.main_menu:toggle()
 	  end
+end
+
+--function awesompd:try_run_inter()
+--   return function()
+--             awful.prompt.run({ prompt = "Not used yet: " },
+--                              self.promptbox[1],
+--                              test_nau, nil,
+--                              nil)
+--          end
+--end
+   
+function awesompd:add_jamendo_top()
+   return function ()
+      top_list = "curl -A 'Mozilla/4.0' -fsm 5 \"http://api.jamendo.com/get2/id+name+url+stream+album_name+album_url+album_id+artist_id+artist_name/track/jsonpretty/track_album+album_artist/?n=100&order=ratingweek_desc\""
+      bus = io.popen(top_list)
+      r = bus:read("*all")
+      parse_table = {}
+      string.gsub(r, "\"id\":(%d+),%s+\"name\":\"([^\"]+)[^%}]*\"artist_name\":\"([^\"]+)\"",function(_id,_track,_artist)
+                                                                 table.insert(parse_table, 
+                                                                              { id = _id, 
+                                                                                track = (_track or ""),
+                                                                                artist = (_artist or "")})
+                                                              end)
+      self.jamendo_list = {}
+      for i = 1,table.getn(parse_table) do
+         track_link = "http://stream32.jamendo.com/stream/" .. parse_table[i].id .."/mp31/"
+         self:command("add " .. track_link)
+         self.jamendo_list[track_link] = parse_table[i].artist .. " - " .. parse_table[i].track
+      end
+      self.recreate_menu = true
+      self.recreate_list = true
+   end
 end
 
 -- Returns the playback menu. Menu contains of:
@@ -309,11 +342,20 @@ function awesompd:get_list_menu()
 	 local start_num = (self.current_number - 15 > 0) and self.current_number - 15 or 1
 	 local end_num = (self.current_number + 15 < total_count ) and self.current_number + 15 or total_count
 	 for i = start_num, end_num do
-	    table.insert(new_menu, { awesompd.protect_string(self.list_array[i]),
-				     self:command_play_specific(i),
-				     self.current_number == i and 
-					(self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
-				     or nil} )
+            print(self.list_array[i])
+            if (string.find(self.list_array[i],"jamendo.com")) then
+               table.insert(new_menu, { self.jamendo_list[(self.list_array[i])],
+                                        self:command_play_specific(i),
+                                        self.current_number == i and 
+                                           (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
+                                        or nil} )
+            else 
+               table.insert(new_menu, { awesompd.protect_string(self.list_array[i]),
+                                        self:command_play_specific(i),
+                                        self.current_number == i and 
+                                           (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
+                                        or nil} )
+            end           
 	 end
       end
       self.recreate_list = false
@@ -540,6 +582,7 @@ function awesompd:update_track()
    local info_ar = self.split(info,"\n")
    if string.len(info) == 0 then
       self.text = "Disconnected"
+      self.unique_text = self.text
       if self.connected then
 	 self:notify_disconnect()
 	 self.connected = false
@@ -554,6 +597,7 @@ function awesompd:update_track()
       self:update_state(info)
       if string.find(info_ar[1],"volume:") then
 	 self.text = "MPD stopped"
+         self.unique_text = self.text
 	 if self.status ~= "Stopped" then
 	    self.status = "Stopped"
 	    self.current_number = 0
@@ -563,8 +607,13 @@ function awesompd:update_track()
 	 end
       else      
 	 local new_track = awesompd.protect_string(info_ar[1])
-	 if new_track ~= self.text then
-	    self.text = new_track
+	 if new_track ~= self.unique_text then
+            if (string.find(new_track,"jamendo.com")) then
+               self.text = self.jamendo_list[new_track]
+            else
+               self.text = new_track
+            end
+            self.unique_text = new_track
 	    self.to_notify = true
 	    self.recreate_menu = true
 	    self.recreate_playback = true
