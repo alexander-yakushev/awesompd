@@ -236,6 +236,7 @@ function awesompd:command_replace_playlist(name)
 	  end
 end
 
+-- TODO: make usable prompt
 function awesompd:command_echo_prompt()
    return function()
 	     self:run_prompt("Sample text: ",function(s)
@@ -248,32 +249,20 @@ end
 
 -- /// Menu generation functions ///
 
-function awesompd:command_show_menu()
-   return function()
-	     self:remove_hint()
-	     if self.recreate_menu then
-		local new_menu = {}
-		if self.main_menu ~= nil then
-		   self.main_menu:hide()
-		end
-		if self.connected then
-		   self:check_list()
-		   self:check_playlists()
-		   table.insert(new_menu, { "Playback", self:get_playback_menu() })
-		   table.insert(new_menu, { "Options",  self:get_options_menu() })
-		   table.insert(new_menu, { "List", self:get_list_menu() })
-		   table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
-                   table.insert(new_menu, { "Jamendo Top 100", self:add_jamendo_top() })
-		end
-		table.insert(new_menu, { "Servers", self:get_servers_menu() })
-		self.main_menu = awful.menu({ items = new_menu,
-					      width = 300
-					   })
-		self.recreate_menu = false
-	     end
-	     self.main_menu:toggle()
-	  end
-end
+function awesompd:command_show_menu() return function()
+   self:remove_hint() if self.recreate_menu then local new_menu = {}
+   if self.main_menu ~= nil then self.main_menu:hide() end if
+   self.connected then self:check_list() self:check_playlists()
+   table.insert(new_menu, { "Playback", self:get_playback_menu() })
+   table.insert(new_menu, { "Options", self:get_options_menu() })
+   table.insert(new_menu, { "List", self:get_list_menu() })
+   table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
+   table.insert(new_menu, { "Jamendo Top 100", { { "MP3",
+   self:add_jamendo_top("32","mp31") }, { "Ogg Vorbis",
+   self:add_jamendo_top("101","ogg2") }}}) end table.insert(new_menu,
+   { "Servers", self:get_servers_menu() }) self.main_menu =
+   awful.menu({ items = new_menu, width = 300 }) self.recreate_menu =
+   false end self.main_menu:toggle() end end
 
 --function awesompd:try_run_inter()
 --   return function()
@@ -284,7 +273,7 @@ end
 --          end
 --end
    
-function awesompd:add_jamendo_top()
+function awesompd:add_jamendo_top(prefix,format)
    return function ()
       top_list = "curl -A 'Mozilla/4.0' -fsm 5 \"http://api.jamendo.com/get2/id+name+url+stream+album_name+album_url+album_id+artist_id+artist_name/track/jsonpretty/track_album+album_artist/?n=100&order=ratingweek_desc\""
       bus = io.popen(top_list)
@@ -298,7 +287,7 @@ function awesompd:add_jamendo_top()
                                                               end)
       self.jamendo_list = {}
       for i = 1,table.getn(parse_table) do
-         track_link = "http://stream32.jamendo.com/stream/" .. parse_table[i].id .."/mp31/"
+         track_link = "http://stream"..prefix..".jamendo.com/stream/" .. parse_table[i].id .."/".. format .."/"
          self:command("add " .. track_link)
          self.jamendo_list[track_link] = parse_table[i].artist .. " - " .. parse_table[i].track
       end
