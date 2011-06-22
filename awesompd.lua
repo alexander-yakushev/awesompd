@@ -86,6 +86,7 @@ function awesompd:create()
    instance.output_size = 30
    instance.update_interval = 10
    instance.path_to_icons = ""
+   instance.filename = awful.util.getdir ("cache").."/jamendo_cache"
 
 -- Widget configuration
    instance.widget:add_signal("mouse::enter", function(c)
@@ -501,7 +502,6 @@ function awesompd:wrap_output(text)
 end
 
 function awesompd:retrieve_cache()
-   self.filename = awful.util.getdir ("cache").."/jamendo_cache"
    local bus = io.open(self.filename)
    if bus then
       for l in bus:lines() do
