@@ -501,11 +501,7 @@ function awesompd:wrap_output(text)
 end
 
 function awesompd:retrieve_cache()
-   if self.path_to_icons == "" then
-      self.filename = "jamendo_cache"
-   else
-      self.filename = self.path_to_icons .. "/jamendo_cache"
-   end
+   self.filename = awful.util.getdir ("cache").."/jamendo_cache"
    local bus = io.open(self.filename)
    if bus then
       for l in bus:lines() do
