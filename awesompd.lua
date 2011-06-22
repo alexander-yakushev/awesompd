@@ -1,6 +1,5 @@
 ---------------------------------------------------------------------------
--- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt;
--- @copyright 2010 Alexander Yakushev
+-- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt-- @copyright 2010 Alexander Yakushev
 -- @release v0.5b
 ---------------------------------------------------------------------------
 
@@ -277,27 +276,42 @@ function awesompd:command_show_menu() return function()
 --          end
 --end
    
-function awesompd:add_jamendo_top(prefix,format)
-   return function ()
-      top_list = "curl -A 'Mozilla/4.0' -fsm 5 \"http://api.jamendo.com/get2/id+name+url+stream+album_name+album_url+album_id+artist_id+artist_name/track/jsonpretty/track_album+album_artist/?n=100&order=ratingweek_desc\""
-      bus = io.popen(top_list)
-      r = bus:read("*all")
-      parse_table = {}
-      string.gsub(r, "\"id\":(%d+),%s+\"name\":\"([^\"]+)[^%}]*\"artist_name\":\"([^\"]+)\"",function(_id,_track,_artist)
-                                                                 table.insert(parse_table, 
-                                                                              { id = _id, 
-                                                                                track = (_track or ""),
-                                                                                artist = (_artist or "")})
-                                                              end)
+function awesompd:add_tracks_from_jamendo(parse_table,format)
+   if (table.getn(parse_table) > 0) then
+      local trygetlink = 
+         assert(io.popen("echo $(curl -w %{redirect_url} " .. 
+                         "'http://api.jamendo.com/get2/stream/track/redirect/" .. 
+                         "?streamencoding="..format.."&id="..parse_table[1].id.."')"),'r'):read("*lines")
+      
+      local _, _, prefix = string.find(trygetlink,"stream(%d+)\.jamendo\.com")
       for i = 1,table.getn(parse_table) do
          track_link = "http://stream"..prefix..".jamendo.com/stream/" .. parse_table[i].id .."/".. format .."/"
          self:command("add " .. track_link)
          self.jamendo_list[parse_table[i].id] = parse_table[i].artist .. " - " .. parse_table[i].track
       end
-      self.recreate_menu = true
-      self.recreate_list = true
-      self:save_cache()
    end
+end
+
+function awesompd:add_jamendo_top(prefix,format)
+   return function ()
+             local top_list = "curl -A 'Mozilla/4.0' -fsm 5 \"http://api.jamendo.com/get2/" ..
+                "id+name+url+stream+album_name+album_url+album_id+artist_id+artist_name" .. 
+                "/track/jsonpretty/track_album+album_artist/?n=100&order=ratingweek_desc\""
+             local bus = assert(io.popen(top_list, 'r'))
+             local r = bus:read("*all")
+             local parse_table = {}
+             string.gsub(r, "\"id\":(%d+),%s+\"name\":\"([^\"]+)[^%}]*\"artist_name\":\"([^\"]+)\"",
+                         function(_id,_track,_artist)
+                            table.insert(parse_table, 
+                                         { id = _id, 
+                                           track = (_track or ""),
+                                           artist = (_artist or "")})
+                         end)
+             self:add_tracks_from_jamendo(parse_table,format)
+             self.recreate_menu = true
+             self.recreate_list = true
+             self:save_cache()
+          end
 end
 
 -- Returns the playback menu. Menu contains of:
