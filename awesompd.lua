@@ -353,7 +353,7 @@ function awesompd:get_list_menu()
 	 local start_num = (self.current_number - 15 > 0) and self.current_number - 15 or 1
 	 local end_num = (self.current_number + 15 < total_count ) and self.current_number + 15 or total_count
 	 for i = start_num, end_num do
-            print(self.list_array[i])
+            dbg (self.list_array[i])
             if (string.find(self.list_array[i],"jamendo.com")) then
                table.insert(new_menu, { self.jamendo_list[awesompd.get_id_from_link(self.list_array[i])],
                                         self:command_play_specific(i),
