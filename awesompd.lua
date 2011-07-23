@@ -8,8 +8,13 @@ local naughty = naughty
 local awful = awful
 
 -- Debug stuff:
-local function dbg (...) return nil end
--- local function dbg (...) print (...) end
+
+local enable_dbg = false
+local function dbg (...)
+   if enable_dbg then
+      print(...)
+   end
+end
 
 awesompd = {}
 
@@ -104,11 +109,12 @@ end
 
 -- Registers timers for the widget
 function awesompd:run()
+   enable_dbg = self.debug_mode
+   self:retrieve_cache()
    self:update_track()
 --   self:update_state()
    self:check_playlists()
    self.load_icons(self.path_to_icons)
-   self:retrieve_cache()
    self.update_widget_timer = timer({ timeout = 1 })
    self.update_widget_timer:add_signal("timeout", function () self:update_widget() end)
    self.update_widget_timer:start()
@@ -256,37 +262,40 @@ end
 
 -- /// Menu generation functions ///
 
-function awesompd:command_show_menu() return function()
-   self:remove_hint() if self.recreate_menu then local new_menu = {}
-   if self.main_menu ~= nil then self.main_menu:hide() end if
-   self.connected then self:check_list() self:check_playlists()
-   table.insert(new_menu, { "Playback", self:get_playback_menu() })
-   table.insert(new_menu, { "Options", self:get_options_menu() })
-   table.insert(new_menu, { "List", self:get_list_menu() })
-   table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
-   table.insert(new_menu, { "Jamendo Top 100", { { "MP3",
-   self:add_jamendo_top("32","mp31") }, { "Ogg Vorbis",
-   self:add_jamendo_top("101","ogg2") }}}) end table.insert(new_menu,
-   { "Servers", self:get_servers_menu() }) self.main_menu =
-   awful.menu({ items = new_menu, width = 300 }) self.recreate_menu =
-   false end self.main_menu:toggle() end end
-
---function awesompd:try_run_inter()
---   return function()
---             awful.prompt.run({ prompt = "Not used yet: " },
---                              self.promptbox[1],
---                              test_nau, nil,
---                              nil)
---          end
---end
+function awesompd:command_show_menu() 
+   return function()
+             self:remove_hint()
+             if self.recreate_menu then 
+                local new_menu = {}
+                if self.main_menu ~= nil then 
+                   self.main_menu:hide() 
+                end 
+                if
+                self.connected then 
+                   self:check_list() 
+                   self:check_playlists()
+                   table.insert(new_menu, { "Playback", self:get_playback_menu() })
+                   table.insert(new_menu, { "Options", self:get_options_menu() })
+                   table.insert(new_menu, { "List", self:get_list_menu() })
+                   table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
+                   table.insert(new_menu, 
+                                { "Jamendo Top 100", { { "MP3", self:add_jamendo_top("mp31") }, 
+                                                       { "Ogg Vorbis", self:add_jamendo_top("ogg2") }}})
+                end 
+                table.insert(new_menu, { "Servers", self:get_servers_menu() }) 
+                self.main_menu = awful.menu({ items = new_menu, width = 300 }) 
+                self.recreate_menu = false 
+             end 
+             self.main_menu:toggle() 
+          end 
+end
    
 function awesompd:add_tracks_from_jamendo(parse_table,format)
    if (table.getn(parse_table) > 0) then
       local trygetlink = 
          assert(io.popen("echo $(curl -w %{redirect_url} " .. 
                          "'http://api.jamendo.com/get2/stream/track/redirect/" .. 
-                         "?streamencoding="..format.."&id="..parse_table[1].id.."')"),'r'):read("*lines")
-      
+                         "?streamencoding="..format.."&id=729304')"),'r'):read("*lines")
       local _, _, prefix = string.find(trygetlink,"stream(%d+)\.jamendo\.com")
       for i = 1,table.getn(parse_table) do
          track_link = "http://stream"..prefix..".jamendo.com/stream/" .. parse_table[i].id .."/".. format .."/"
@@ -296,7 +305,7 @@ function awesompd:add_tracks_from_jamendo(parse_table,format)
    end
 end
 
-function awesompd:add_jamendo_top(prefix,format)
+function awesompd:add_jamendo_top(format)
    return function ()
              local top_list = "curl -A 'Mozilla/4.0' -fsm 5 \"http://api.jamendo.com/get2/" ..
                 "id+name+url+stream+album_name+album_url+album_id+artist_id+artist_name" .. 
@@ -353,7 +362,6 @@ function awesompd:get_list_menu()
 	 local start_num = (self.current_number - 15 > 0) and self.current_number - 15 or 1
 	 local end_num = (self.current_number + 15 < total_count ) and self.current_number + 15 or total_count
 	 for i = start_num, end_num do
-            dbg (self.list_array[i])
             if (string.find(self.list_array[i],"jamendo.com")) then
                table.insert(new_menu, { self.jamendo_list[awesompd.get_id_from_link(self.list_array[i])],
                                         self:command_play_specific(i),
@@ -648,17 +656,14 @@ function awesompd:update_track()
 	    self.recreate_list = true
 	 end
       else
-	 -- delay character escaping until widget update.
-	 local new_track = -- awesompd.protect_string(
-	    info_ar[1]-- )
+	 local new_track = info_ar[1]
 	 if new_track ~= self.unique_text then
             if (string.find(new_track,"jamendo.com")) then
                self.text = self.jamendo_list[awesompd.get_id_from_link(new_track)]
             else
                self.text = new_track
             end
-            self.unique_text = new_track --<- NB: what does this mean? could it
-					 --be `self.text' instead?
+            self.unique_text = new_track
 	    self.to_notify = true
 	    self.recreate_menu = true
 	    self.recreate_playback = true
