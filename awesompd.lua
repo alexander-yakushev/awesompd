@@ -1,13 +1,14 @@
 ---------------------------------------------------------------------------
--- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt-- @copyright 2010 Alexander Yakushev
--- @release v0.5b
+-- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt;
+-- @copyright 2010-2011 Alexander Yakushev
+-- @release v0.9.1
 ---------------------------------------------------------------------------
 
 require('utf8')
 local naughty = naughty
 local awful = awful
 
--- Debug stuff:
+-- Debug stuff
 
 local enable_dbg = false
 local function dbg (...)
@@ -31,6 +32,9 @@ awesompd.NOTIFY_SINGLE = 4
 awesompd.NOTIFY_CONSUME = 5
 awesompd.ESCAPE_SYMBOL_MAPPING = {}
 awesompd.ESCAPE_SYMBOL_MAPPING["&"] = "&amp;"
+-- Menus do not handle symbol escaping correctly, so adding a wart here.
+awesompd.ESCAPE_MENU_SYMBOL_MAPPING = {}
+awesompd.ESCAPE_MENU_SYMBOL_MAPPING["&"] = "'n'"
 
 -- Icons
 
@@ -149,7 +153,6 @@ function awesompd:register_buttons(buttons)
       else
          mods = buttons[b][1]
       end
---      mods = self.split(buttons[b][1],"+")
       table.insert(widget_buttons, awful.button(mods, buttons[b][2], buttons[b][3]))
    end
    self.widget:buttons(self.ajoin(widget_buttons))
@@ -158,8 +161,11 @@ end
 -- /// Group of mpc command functions ///
 
 function awesompd:command(com,hook)
-   io.popen(self:mpcquery() .. com):read("*all")
-   t = hook and hook(self)
+   local file = io.popen(self:mpcquery() .. com)
+   if hook then
+      hook(self,file)
+   end
+   file:close()
 end
 
 function awesompd:command_toggle()
@@ -312,6 +318,7 @@ function awesompd:add_jamendo_top(format)
                 "/track/jsonpretty/track_album+album_artist/?n=100&order=ratingweek_desc\""
              local bus = assert(io.popen(top_list, 'r'))
              local r = bus:read("*all")
+             bus:close()
              local parse_table = {}
              string.gsub(r, "\"id\":(%d+),%s+\"name\":\"([^\"]+)[^%}]*\"artist_name\":\"([^\"]+)\"",
                          function(_id,_track,_artist)
@@ -338,11 +345,11 @@ function awesompd:get_playback_menu()
       table.insert(new_menu, { "Play\\Pause", self:command_toggle(), self.ICONS.PLAY_PAUSE })
       if self.connected and self.status ~= "Stopped" then
 	 if self.current_number ~= 1 then
-	    table.insert(new_menu, { "Prev: " .. awesompd.protect_string(self.list_array[self.current_number - 1]), 
+	    table.insert(new_menu, { "Prev: " .. awesompd.protect_string(self.list_array[self.current_number - 1], true), 
 				     self:command_prev_track(), self.ICONS.PREV })
 	 end
 	 if self.current_number ~= table.getn(self.list_array) then
-	    table.insert(new_menu, { "Next: " .. awesompd.protect_string(self.list_array[self.current_number + 1]), 
+	    table.insert(new_menu, { "Next: " .. awesompd.protect_string(self.list_array[self.current_number + 1], true), 
 				     self:command_next_track(), self.ICONS.NEXT })
 	 end
 	 table.insert(new_menu, { "Stop", self:command_stop(), self.ICONS.STOP })
@@ -369,7 +376,7 @@ function awesompd:get_list_menu()
                                            (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
                                         or nil} )
             else 
-               table.insert(new_menu, { awesompd.protect_string(self.list_array[i]),
+               table.insert(new_menu, { awesompd.protect_string(self.list_array[i], true),
                                         self:command_play_specific(i),
                                         self.current_number == i and 
                                            (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
@@ -625,12 +632,19 @@ function awesompd:notify_disconnect()
 		 " on port " .. self.servers[self.current_server].port)
 end
 
-function awesompd:update_track()
-   local bus = io.popen(self:mpcquery())
-   local info = bus:read("*all")
-   bus:close()
-   local info_ar = self.split(info,"\n")
-   if string.len(info) == 0 then
+function awesompd:update_track(file)
+   local file_exists = (file ~= nil)
+   if not file_exists then
+      file = io.popen(self:mpcquery())
+   end
+   local track_line = file:read("*line")
+   local status_line = file:read("*line")
+   local options_line = file:read("*line")
+   if not file_exists then
+      file:close()
+   end
+
+   if not track_line or string.len(track_line) == 0 then
       self.text = "Disconnected"
       self.unique_text = self.text
       if self.connected then
@@ -644,8 +658,7 @@ function awesompd:update_track()
 	 self.connected = true
 	 self.recreate_menu = true
       end
-      self:update_state(info)
-      if string.find(info_ar[1],"volume:") then
+      if string.find(track_line,"volume:") then
 	 self.text = "MPD stopped"
          self.unique_text = self.text
 	 if self.status ~= "Stopped" then
@@ -655,8 +668,10 @@ function awesompd:update_track()
 	    self.recreate_playback = true
 	    self.recreate_list = true
 	 end
+         self:update_state(track_line)
       else
-	 local new_track = info_ar[1]
+         self:update_state(options_line)
+	 local new_track = track_line
 	 if new_track ~= self.unique_text then
             if (string.find(new_track,"jamendo.com")) then
                self.text = self.jamendo_list[awesompd.get_id_from_link(new_track)]
@@ -668,12 +683,12 @@ function awesompd:update_track()
 	    self.recreate_menu = true
 	    self.recreate_playback = true
 	    self.recreate_list = true
-	    self.current_number = tonumber(self.find_pattern(info_ar[2],"%d+"))
+	    self.current_number = tonumber(self.find_pattern(status_line,"%d+"))
 	 end
-	 local tmp_pst = string.find(info_ar[2],"%d+%:%d+%/")
-	 local progress = self.find_pattern(info_ar[2],"%#%d+/%d+") .. " " .. string.sub(info_ar[2],tmp_pst)   
+	 local tmp_pst = string.find(status_line,"%d+%:%d+%/")
+	 local progress = self.find_pattern(status_line,"%#%d+/%d+") .. " " .. string.sub(status_line,tmp_pst)   
 	 newstatus = "Playing"
-	 if string.find(info_ar[2],"paused") then
+	 if string.find(status_line,"paused") then
 	    newstatus = "Paused"
 	 end
 	 if newstatus ~= self.status then
@@ -725,6 +740,10 @@ function awesompd:run_prompt(welcome,hook)
 		    hook)
 end
 
-function awesompd.protect_string(str)
-   return utf8replace(str, awesompd.ESCAPE_SYMBOL_MAPPING)
+function awesompd.protect_string(str, for_menu)
+   if for_menu then
+      return utf8replace(str, awesompd.ESCAPE_MENU_SYMBOL_MAPPING)
+   else
+      return utf8replace(str, awesompd.ESCAPE_SYMBOL_MAPPING)
+   end
 end
