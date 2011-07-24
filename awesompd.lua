@@ -5,6 +5,8 @@
 ---------------------------------------------------------------------------
 
 require('utf8')
+require('jamendo')
+
 local naughty = naughty
 local awful = awful
 
@@ -78,7 +80,6 @@ function awesompd:create()
    instance.status_text = "Stopped"
    instance.to_notify = false
    instance.connected = true
-   instance.jamendo_list = {}
 
    instance.recreate_menu = true
    instance.recreate_playback = true
@@ -95,7 +96,6 @@ function awesompd:create()
    instance.output_size = 30
    instance.update_interval = 10
    instance.path_to_icons = ""
-   instance.filename = awful.util.getdir ("cache").."/jamendo_cache"
    instance.ldecorator = " "
    instance.rdecorator = " "
 
@@ -112,7 +112,6 @@ end
 -- Registers timers for the widget
 function awesompd:run()
    enable_dbg = self.debug_mode
-   self:retrieve_cache()
    self:update_track()
    self:check_playlists()
    self.load_icons(self.path_to_icons)
@@ -301,43 +300,31 @@ function awesompd:command_show_menu()
           end 
 end
    
-function awesompd:add_tracks_from_jamendo(parse_table,format)
-   if (table.getn(parse_table) > 0) then
-      local trygetlink = 
-         assert(io.popen("echo $(curl -w %{redirect_url} " .. 
-                         "'http://api.jamendo.com/get2/stream/track/redirect/" .. 
-                         "?streamencoding="..format.."&id=729304')"),'r'):read("*lines")
-      local _, _, prefix = string.find(trygetlink,"stream(%d+)\.jamendo\.com")
-      for i = 1,table.getn(parse_table) do
-         track_link = "http://stream" .. prefix .. ".jamendo.com/stream/" 
-            .. parse_table[i].id .."/".. format .."/"
-         self:command("add " .. track_link)
-         self.jamendo_list[parse_table[i].id] = 
-            parse_table[i].artist .. " - " .. parse_table[i].track
-      end
-   end
-end
+-- function awesompd:add_tracks_from_jamendo(parse_table,format)
+--    if (table.getn(parse_table) > 0) then
+--       local trygetlink = 
+--          assert(io.popen("echo $(curl -w %{redirect_url} " .. 
+--                          "'http://api.jamendo.com/get2/stream/track/redirect/" .. 
+--                          "?streamencoding="..format.."&id=729304')"),'r'):read("*lines")
+--       local _, _, prefix = string.find(trygetlink,"stream(%d+)\.jamendo\.com")
+--       for i = 1,table.getn(parse_table) do
+--          track_link = "http://stream" .. prefix .. ".jamendo.com/stream/" 
+--             .. parse_table[i].id .."/".. format .."/"
+--          self:command("add " .. track_link)
+--          self.jamendo_list[parse_table[i].id] = 
+--             parse_table[i].artist .. " - " .. parse_table[i].track
+--       end
+--    end
+-- end
 
 function awesompd:add_jamendo_top(format)
    return function ()
-             local top_list = "curl -A 'Mozilla/4.0' -fsm 5 \"http://api.jamendo.com/get2/" ..
-                "id+name+url+stream+album_name+album_url+album_id+artist_id+artist_name" .. 
-                "/track/jsonpretty/track_album+album_artist/?n=100&order=ratingweek_desc\""
-             local bus = assert(io.popen(top_list, 'r'))
-             local r = bus:read("*all")
-             bus:close()
-             local parse_table = {}
-             string.gsub(r, "\"id\":(%d+),%s+\"name\":\"([^\"]+)[^%}]*\"artist_name\":\"([^\"]+)\"",
-                         function(_id,_track,_artist)
-                            table.insert(parse_table, 
-                                         { id = _id, 
-                                           track = (_track or ""),
-                                           artist = (_artist or "")})
-                         end)
-             self:add_tracks_from_jamendo(parse_table,format)
+             local track_table = jamendo.return_track_table()
+             for i = 1,table.getn(track_table) do
+                self:command("add " .. track_table[i].stream)
+             end
              self.recreate_menu = true
              self.recreate_list = true
-             self:save_cache()
           end
 end
 
@@ -384,7 +371,7 @@ function awesompd:get_list_menu()
 	 local end_num = (self.current_number + 15 < total_count ) and self.current_number + 15 or total_count
 	 for i = start_num, end_num do
             if (string.find(self.list_array[i],"jamendo.com")) then
-               table.insert(new_menu, { self.jamendo_list[awesompd.get_id_from_link(self.list_array[i])],
+               table.insert(new_menu, { jamendo.get_name_by_link(self.list_array[i]),
                                         self:command_play_specific(i),
                                         self.current_number == i and 
                                            (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
@@ -550,34 +537,6 @@ function awesompd:wrap_output(text)
                         awesompd.protect_string(text), self.rdecorator)
 end
 
--- Retrieves mapping of track IDs to track names to avoid redundant
--- queries when Awesome gets restarted.
-function awesompd:retrieve_cache()
-   local bus = io.open(self.filename)
-   if bus then
-      for l in bus:lines() do
-         local _, _, id, track = string.find(l,"(%d+)-(.+)")
-         self.jamendo_list[id] = track
-      end
-   end
-end
-
--- Saves track IDs to track names mapping into the cache file.
-function awesompd:save_cache()
-   local bus = io.open(self.filename, "w")
-   for id,name in pairs(self.jamendo_list) do
-      bus:write(id.."-"..name.."\n")
-   end
-   bus:flush()
-   bus:close()
-end
-
--- Returns the track ID from the given link to Jamendo stream.
-function awesompd.get_id_from_link(link)
-   local _, _, id = string.find(link,"stream/(%d+)")
-   return id
-end
-
 function awesompd.split (s,t)
    local l = {n=0}
    local f = function (s)
@@ -687,7 +646,7 @@ function awesompd:update_track(file)
 	 local new_track = track_line
 	 if new_track ~= self.unique_text then
             if (string.find(new_track,"jamendo.com")) then
-               self.text = self.jamendo_list[awesompd.get_id_from_link(new_track)]
+               self.text = jamendo.get_name_by_link(new_track)
             else
                self.text = new_track
             end
@@ -761,94 +720,4 @@ function awesompd.protect_string(str, for_menu)
    else
       return utf8replace(str, awesompd.ESCAPE_SYMBOL_MAPPING)
    end
-end
-
--- Primitive function for parsing Jamendo API JSON response.  Does not
--- support arrays. Supports only strings and numbers as values.
--- Provides basic safety (correctly handles special symbols like comma
--- and curly brackets inside strings)
--- text - JSON text
-function awesompd.parse_json(text)
-   local parse_table = {}
-   local block = {}
-   local i = 0
-   local inblock = false
-   local instring = false
-   local curr_key = nil
-   local curr_val = nil
-   while i and i < string.len(text) do
-      if not inblock then -- We are not inside the block, find next {
-         i = string.find(text, "{", i+1)
-         inblock = true
-         block = {}
-      else
-         if not curr_key then -- We haven't found key yet
-            if not instring then -- We are not in string, check for more tags
-               local j = string.find(text, '"', i+1)
-               local k = string.find(text, '}', i+1)
-               if j and j < k then -- There are more tags in this block
-                  i = j
-                  instring = true
-               else -- Block is over, find its ending
-                  i = k
-                  inblock = false
-                  table.insert(parse_table, block)
-               end
-            else -- We are in string, find its ending
-               _, i, curr_key = string.find(text,'(.-[^%\\])"', i+1)
-               instring = false
-            end
-         else -- We have the key, let's find the value
-            if not curr_val then -- Value is not found yet
-               if not instring then -- Not in string, check if value is string
-                  local j = string.find(text, '"', i+1)
-                  local k = string.find(text, '[,}]', i+1)
-                  if j and j < k then -- Value is string
-                     i = j
-                     instring = true
-                  else -- Value is int
-                     _, i, curr_val = string.find(text,'(%d+)', i+1)
-                  end
-               else -- We are in string, find its ending
-                  local j = string.find(text, '"', i+1)
-                  if j == i+1 then -- String is empty
-                     i = j
-                     curr_val = ""
-                  else
-                     _, i, curr_val = string.find(text,'(.-[^%\\])"', i+1)
-                     curr_val = awesompd.utf8_codes_to_symbols(curr_val)
-                  end
-                  instring = false
-               end
-            else -- We have both key and value, add it to table
-               block[curr_key] = curr_val
-               curr_key = nil
-               curr_val = nil
-            end
-         end
-      end
-   end
-   return parse_table
-end
-
--- Jamendo returns Unicode symbols as \uXXXX. Lua does not transform
--- them into symbols so we need to do it ourselves.
-function awesompd.utf8_codes_to_symbols (s)
-   local hexnums = "[%dabcdefABCDEF]"
-   local pattern = string.format("\\u(%s%s%s%s?)", 
-                                 hexnums, hexnums, hexnums, hexnums)
-   print("Pattern is : " .. pattern)
-   local decode = function(code)
-                     code = tonumber(code, 16)
-                     -- Grab high and low byte
-                     local hi = math.floor(code / 256) * 4 + 192
-                     local lo = math.mod(code, 256)
-                     -- Reduce low byte to 64, add overflow to high
-                     local oflow = math.floor(lo / 64)
-                     hi = hi + oflow
-                     lo = math.mod(code, 64) + 128
-                     -- Return symbol as \hi\lo
-                     return string.char(hi, lo)
-                  end
-   return string.gsub(s, pattern, decode)
 end
