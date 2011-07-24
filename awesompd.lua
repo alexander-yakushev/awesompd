@@ -550,6 +550,8 @@ function awesompd:wrap_output(text)
                         awesompd.protect_string(text), self.rdecorator)
 end
 
+-- Retrieves mapping of track IDs to track names to avoid redundant
+-- queries when Awesome gets restarted.
 function awesompd:retrieve_cache()
    local bus = io.open(self.filename)
    if bus then
@@ -560,6 +562,7 @@ function awesompd:retrieve_cache()
    end
 end
 
+-- Saves track IDs to track names mapping into the cache file.
 function awesompd:save_cache()
    local bus = io.open(self.filename, "w")
    for id,name in pairs(self.jamendo_list) do
@@ -569,6 +572,7 @@ function awesompd:save_cache()
    bus:close()
 end
 
+-- Returns the track ID from the given link to Jamendo stream.
 function awesompd.get_id_from_link(link)
    local _, _, id = string.find(link,"stream/(%d+)")
    return id
@@ -708,7 +712,6 @@ function awesompd:update_track(file)
 	 self.status_text = self.status .. " " .. progress
       end
    end
-   
 end
 
 function awesompd:update_state(state_string)
@@ -749,10 +752,103 @@ function awesompd:run_prompt(welcome,hook)
 		    hook)
 end
 
+-- Replaces control characters with escaped ones.
+-- for_menu - defines if the special escable table for menus should be
+-- used.
 function awesompd.protect_string(str, for_menu)
    if for_menu then
       return utf8replace(str, awesompd.ESCAPE_MENU_SYMBOL_MAPPING)
    else
       return utf8replace(str, awesompd.ESCAPE_SYMBOL_MAPPING)
    end
+end
+
+-- Primitive function for parsing Jamendo API JSON response.  Does not
+-- support arrays. Supports only strings and numbers as values.
+-- Provides basic safety (correctly handles special symbols like comma
+-- and curly brackets inside strings)
+-- text - JSON text
+function awesompd.parse_json(text)
+   local parse_table = {}
+   local block = {}
+   local i = 0
+   local inblock = false
+   local instring = false
+   local curr_key = nil
+   local curr_val = nil
+   while i and i < string.len(text) do
+      if not inblock then -- We are not inside the block, find next {
+         i = string.find(text, "{", i+1)
+         inblock = true
+         block = {}
+      else
+         if not curr_key then -- We haven't found key yet
+            if not instring then -- We are not in string, check for more tags
+               local j = string.find(text, '"', i+1)
+               local k = string.find(text, '}', i+1)
+               if j and j < k then -- There are more tags in this block
+                  i = j
+                  instring = true
+               else -- Block is over, find its ending
+                  i = k
+                  inblock = false
+                  table.insert(parse_table, block)
+               end
+            else -- We are in string, find its ending
+               _, i, curr_key = string.find(text,'(.-[^%\\])"', i+1)
+               instring = false
+            end
+         else -- We have the key, let's find the value
+            if not curr_val then -- Value is not found yet
+               if not instring then -- Not in string, check if value is string
+                  local j = string.find(text, '"', i+1)
+                  local k = string.find(text, '[,}]', i+1)
+                  if j and j < k then -- Value is string
+                     i = j
+                     instring = true
+                  else -- Value is int
+                     _, i, curr_val = string.find(text,'(%d+)', i+1)
+                  end
+               else -- We are in string, find its ending
+                  local j = string.find(text, '"', i+1)
+                  if j == i+1 then -- String is empty
+                     i = j
+                     curr_val = ""
+                  else
+                     _, i, curr_val = string.find(text,'(.-[^%\\])"', i+1)
+                     curr_val = awesompd.utf8_codes_to_symbols(curr_val)
+                  end
+                  instring = false
+               end
+            else -- We have both key and value, add it to table
+               block[curr_key] = curr_val
+               curr_key = nil
+               curr_val = nil
+            end
+         end
+      end
+   end
+   return parse_table
+end
+
+-- Jamendo returns Unicode symbols as \uXXXX. Lua does not transform
+-- them into symbols so we need to do it ourselves.
+function awesompd.utf8_codes_to_symbols (s)
+   local hexnums = "[%dabcdefABCDEF]"
+   local pattern = string.format("\\u(%s%s%s%s?)", 
+                                 hexnums, hexnums, hexnums, hexnums)
+   print("Pattern is : " .. pattern)
+   local decode = function(code)
+                     code = tonumber(code, 16)
+                     -- Grab high and low byte
+                     local hi = math.floor(code / 256) * 4 + 192
+                     local lo = math.mod(code, 256)
+                     -- Reduce low byte to 64, add overflow to high
+                     local oflow = math.floor(lo / 64)
+                     hi = hi + oflow
+                     lo = math.mod(code, 64) + 128
+                     -- Return symbol as \hi\lo
+                     return string.char(hi, lo)
+                  end
+   return string.gsub(s, pattern, decode)
 end
