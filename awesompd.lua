@@ -6,9 +6,10 @@
 
 require('utf8')
 require('jamendo')
-
+local beautiful = require('beautiful')
 local naughty = naughty
 local awful = awful
+
 
 -- Debug stuff
 
@@ -300,23 +301,6 @@ function awesompd:command_show_menu()
           end 
 end
    
--- function awesompd:add_tracks_from_jamendo(parse_table,format)
---    if (table.getn(parse_table) > 0) then
---       local trygetlink = 
---          assert(io.popen("echo $(curl -w %{redirect_url} " .. 
---                          "'http://api.jamendo.com/get2/stream/track/redirect/" .. 
---                          "?streamencoding="..format.."&id=729304')"),'r'):read("*lines")
---       local _, _, prefix = string.find(trygetlink,"stream(%d+)\.jamendo\.com")
---       for i = 1,table.getn(parse_table) do
---          track_link = "http://stream" .. prefix .. ".jamendo.com/stream/" 
---             .. parse_table[i].id .."/".. format .."/"
---          self:command("add " .. track_link)
---          self.jamendo_list[parse_table[i].id] = 
---             parse_table[i].artist .. " - " .. parse_table[i].track
---       end
---    end
--- end
-
 function awesompd:add_jamendo_top(format)
    return function ()
              local track_table = jamendo.return_track_table()
@@ -345,13 +329,18 @@ function awesompd:get_playback_menu()
          if self.current_number ~= 1 then
             table.insert(new_menu, 
                          { "Prev: " .. 
-                           awesompd.protect_string(self.list_array[self.current_number - 1],
+                           awesompd.protect_string(jamendo.replace_link(
+                                                      self.list_array[self.current_number - 1]),
                                                    true),
-                                     self:command_prev_track(), self.ICONS.PREV })
+                        self:command_prev_track(), self.ICONS.PREV })
          end
          if self.current_number ~= table.getn(self.list_array) then
-            table.insert(new_menu, { "Next: " .. awesompd.protect_string(self.list_array[self.current_number + 1], true), 
-                                     self:command_next_track(), self.ICONS.NEXT })
+            table.insert(new_menu, 
+                         { "Next: " .. 
+                           awesompd.protect_string(jamendo.replace_link(
+                                                      self.list_array[self.current_number + 1]), 
+                                                   true), 
+                        self:command_next_track(), self.ICONS.NEXT })
          end
          table.insert(new_menu, { "Stop", self:command_stop(), self.ICONS.STOP })
       end
@@ -370,19 +359,11 @@ function awesompd:get_list_menu()
 	 local start_num = (self.current_number - 15 > 0) and self.current_number - 15 or 1
 	 local end_num = (self.current_number + 15 < total_count ) and self.current_number + 15 or total_count
 	 for i = start_num, end_num do
-            if (string.find(self.list_array[i],"jamendo.com")) then
-               table.insert(new_menu, { jamendo.get_name_by_link(self.list_array[i]),
-                                        self:command_play_specific(i),
-                                        self.current_number == i and 
-                                           (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
-                                        or nil} )
-            else 
-               table.insert(new_menu, { awesompd.protect_string(self.list_array[i], true),
-                                        self:command_play_specific(i),
-                                        self.current_number == i and 
-                                           (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
-                                        or nil} )
-            end           
+            table.insert(new_menu, { jamendo.replace_link(self.list_array[i]),
+                                     self:command_play_specific(i),
+                                     self.current_number == i and 
+                                        (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
+                                     or nil} )
 	 end
       end
       self.recreate_list = false
@@ -645,11 +626,7 @@ function awesompd:update_track(file)
          self:update_state(options_line)
 	 local new_track = track_line
 	 if new_track ~= self.unique_text then
-            if (string.find(new_track,"jamendo.com")) then
-               self.text = jamendo.get_name_by_link(new_track)
-            else
-               self.text = new_track
-            end
+            self.text = jamendo.replace_link(new_track)
             self.unique_text = new_track
 	    self.to_notify = true
 	    self.recreate_menu = true
@@ -721,3 +698,45 @@ function awesompd.protect_string(str, for_menu)
       return utf8replace(str, awesompd.ESCAPE_SYMBOL_MAPPING)
    end
 end
+
+-- Displays a inputbox on the screen (looks like naugty with prompt).
+-- title_text - bold text in the first line
+-- prompt_text - preceding text on the second line
+-- hook - function that will be called with input data
+function awesompd:display_inputbox(title_text, prompt_text, hook)
+   if self.inputbox then -- Inputbox already exists, do nothing
+      return
+   end
+   local width = 200
+   local height = 30
+   local border_color = beautiful.bg_focus or '#535d6c'
+   local margin = 5
+   local wbox = wibox({ name = "awmpd_ibox", height = height , width = width, 
+                        border_color = border_color, border_width = 1 })
+   self.inputbox = wbox
+   local ws = screen[mouse.screen].workarea
+
+   wbox:geometry({ x = ws.width - width - 5, y = 25 })
+   wbox.screen = mouse.screen
+   wbox.ontop = true
+
+   local exe_callback = function(s)
+                           hook(s)
+                           wbox.screen = nil
+                           self.inputbox = nil
+                        end
+   local done_callback = function()
+                            wbox.screen = nil
+                            self.inputbox = nil
+                         end
+   local wprompt = awful.widget.prompt({ layout = awful.widget.layout.horizontal.leftright })
+   local wtbox = widget({ type = "textbox" })
+   wtbox:margin({ right = margin, left = margin, bottom = margin, top = margin })
+   wtbox.text = "<b>" .. title_text .. "</b>"
+   wbox.widgets = { wtbox, wprompt, layout = awful.widget.layout.vertical.flex }
+   awful.prompt.run( { prompt = " " .. prompt_text .. ": " }, wprompt.widget, 
+                     exe_callback, nil, nil, nil, done_callback)
+end
+
+-- Use it like this
+-- self:display_inputbox("Search music on Jamendo", "Artist", print)

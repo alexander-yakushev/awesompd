@@ -29,7 +29,9 @@ SEARCH_ALBUM = { display = "Album",
 SEARCH_TAG = { display = "Tag",
                value = "tag_idstr" }
 
-current_request_table = { format = FORMAT_MP3,
+current_request_table = { unit = "track", 
+                          fields = {"id", "artist_name", "name", "stream"}, 
+                          format = FORMAT_MP3,
                           order = ORDER_RATINGWEEKLY }
 
 -- Local variables
@@ -70,6 +72,18 @@ function get_name_by_link(link)
    return jamendo_list[get_id_from_link(link)]
 end
 
+-- If a track is actually a Jamendo stream, replace it with normal
+-- track name.
+function replace_link(track)
+   if string.find(track,"jamendo.com/stream") then
+      local track_name = get_name_by_link(track)
+      if track_name then
+         return track_name
+      end
+   end
+   return track
+end
+
 -- Returns table of track IDs, names and other things based on the
 -- request table.
 function return_track_table(request_table)
@@ -96,31 +110,23 @@ end
 -- table. If request_table is nil, uses current_request_table instead.
 function form_request(request_table)
    local curl_str = 'echo $(curl -w %%{redirect_url} ' ..
-      '"http://api.jamendo.com/get2/id+artist_name+name+stream/' ..
-      'track/json/track_album+album_artist/?n=100&order=%s&streamencoding=%s")'
-   if request_table then
-      local format = request_table.format or current_request_table.format
-      local order = request_table.order or current_request_table.order
-      return string.format(curl_str, order.value, format.value)
-   else
-      print("Request : " .. string.format(curl_str, 
-                           current_request_table.order.value,
-                                        current_request_table.format.value))
-      return string.format(curl_str, 
-                           current_request_table.order.value,
-                           current_request_table.format.value)
+      '"http://api.jamendo.com/get2/%s/' ..
+      '%s/json/track_album+album_artist/?n=100&order=%s&streamencoding=%s")'
+   request_table = request_table or current_request_table
+   
+   local fields = request_table.fields or current_request_table.fields
+   local field_string = ""
+   for i = 1, table.getn(fields) do
+      field_string = field_string .. fields[i] .. "+"
    end
+   field_string = string.sub(field_string,1,string.len(field_string)-1)
+   local unit = request_table.unit or current_request_table.unit
+   local format = request_table.format or current_request_table.format
+   local order = request_table.order or current_request_table.order
+   
+   print("Request : " .. string.format(curl_str, field_string, unit, order.value, format.value))
+   return string.format(curl_str, field_string, unit, order.value, format.value)
 end
-
-
-
-
-
-
-
-
-
-
 
 -- Primitive function for parsing Jamendo API JSON response.  Does not
 -- support arrays. Supports only strings and numbers as values.
