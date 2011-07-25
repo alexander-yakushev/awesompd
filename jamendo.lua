@@ -3,6 +3,15 @@ module('jamendo', package.seeall)
 -- Grab environment
 local os = os
 
+-- Local variables
+local jamendo_list = {}
+local cache_file = awful.util.getdir ("cache").."/jamendo_cache"
+local default_mp3_stream = nil
+local search_template = { fields = { "id", "name" },
+                          joins = {},
+                          params = { order = ORDER_RELEVANCE,
+                                     n = 1}}
+
 -- Global variables
 FORMAT_MP3 = { display = "MP3 (128k)", 
                short_display = "MP3", 
@@ -22,22 +31,23 @@ ORDER_RATINGTOTAL = { display = "All time rating",
 ORDER_RANDOM = { display = "Random", 
                  short_display = "random", 
                  value = "random_desc" }
+ORDER_RELEVANCE = { value = "searchweight_desc" }
 SEARCH_ARTIST = { display = "Artist",
-                  value = "artist" }
+                  unit = "artist",
+                  value = "artist_id" }
 SEARCH_ALBUM = { display = "Album",
-                 value = "album" }
+                 unit = "album",
+                 value = "album_id" }
 SEARCH_TAG = { display = "Tag",
-               value = "tag_idstr" }
+               unit = "tag",
+               value = "tag_id" }
 
 current_request_table = { unit = "track", 
-                          fields = {"id", "artist_name", "name", "stream"}, 
-                          format = FORMAT_MP3,
-                          order = ORDER_RATINGWEEKLY }
-
--- Local variables
-local jamendo_list = {}
-local cache_file = awful.util.getdir ("cache").."/jamendo_cache"
-local default_mp3_stream = nil
+                          fields = {"id", "artist_name", "name", "stream"},
+                          joins = { "track_album", "album_artist" },
+                          params = { streamencoding = FORMAT_MP3, 
+                                     order = ORDER_RATINGWEEKLY,
+                                     n = 100 }}
 
 -- Returns default stream number for MP3 format. Requests API for it
 -- not more often than every hour.
@@ -45,9 +55,9 @@ function get_default_mp3_stream()
    if not default_mp3_stream or 
       (os.time() - default_mp3_stream.last_checked) > 3600 then
       local trygetlink = 
-         assert(io.popen("echo $(curl -w %{redirect_url} " .. 
+         perform_request("echo $(curl -w %{redirect_url} " .. 
                          "'http://api.jamendo.com/get2/stream/track/redirect/" .. 
-                         "?streamencoding="..format.."&id=729304')",'r')):read("*line")
+                         "?streamencoding="..format.."&id=729304')")
       local _, _, prefix = string.find(trygetlink,"stream(%d+)\.jamendo\.com")
       default_mp3_stream = { id = prefix, last_checked = os.time() }
    end
@@ -88,9 +98,7 @@ end
 -- request table.
 function return_track_table(request_table)
    local req_string = form_request(request_table)
-   local bus = assert(io.popen(req_string, 'r'))
-   local response = bus:read("*all")
-   bus:close()
+   local response = perform_request(req_string)
    parse_table = parse_json(response)
    for i = 1, table.getn(parse_table) do
       if parse_table[i].stream == "" then
@@ -108,24 +116,60 @@ end
 
 -- Generates the request to Jamendo API based on provided request
 -- table. If request_table is nil, uses current_request_table instead.
+-- For all values that do not exist in request_table use ones from
+-- current_request_table.
 function form_request(request_table)
-   local curl_str = 'echo $(curl -w %%{redirect_url} ' ..
-      '"http://api.jamendo.com/get2/%s/' ..
-      '%s/json/track_album+album_artist/?n=100&order=%s&streamencoding=%s")'
+   local curl_str = "curl -A 'Mozilla/4.0' -fsm 5 \"%s\""
+   local url = "http://api.jamendo.com/get2/%s/%s/json/%s/?%s"
    request_table = request_table or current_request_table
    
    local fields = request_table.fields or current_request_table.fields
+   -- Form field string (like field1+field2+fieldN)
    local field_string = ""
    for i = 1, table.getn(fields) do
       field_string = field_string .. fields[i] .. "+"
    end
    field_string = string.sub(field_string,1,string.len(field_string)-1)
+
    local unit = request_table.unit or current_request_table.unit
-   local format = request_table.format or current_request_table.format
-   local order = request_table.order or current_request_table.order
+
+   local joins = request_table.joins or current_request_table.joins
+   local join_string = ""
+   -- Form join string (like table1+table2+tableN)
+   for i = 1, table.getn(joins) do
+      join_string = join_string .. joins[i] .. "+"
+   end
+   join_string = string.sub(join_string,1,string.len(join_string)-1)
    
-   print("Request : " .. string.format(curl_str, field_string, unit, order.value, format.value))
-   return string.format(curl_str, field_string, unit, order.value, format.value)
+   local params = {}
+   -- If parameters where supplied in request_table, add them to the
+   -- parameters in current_request_table.
+   if request_table.params and 
+      request_table.params ~= current_request_table.params then
+      -- First fill params with current_request_table parameters
+      for k, v in pairs(current_request_table.params) do
+         params[k] = v
+      end
+      -- Then add and overwrite them with request_table parameters
+      for k, v in pairs(request_table.params) do
+         params[k] = v
+      end
+   else -- Or just use current_request_table.params
+      params = current_request_table.params
+   end
+   -- Form parameter string (like param1=value1&param2=value2)
+   local param_string = ""
+   for k, v in pairs(params) do
+      if type(v) == "table" then
+         param_string = param_string .. k .. "=" .. v.value .. "&"
+      else
+         param_string = param_string .. k .. "=" .. v .. "&"
+      end
+   end
+   param_string = string.sub(param_string,1,string.len(param_string)-1)
+
+   return string.format(curl_str, string.format(url, field_string, unit, 
+                                                join_string, param_string))
 end
 
 -- Primitive function for parsing Jamendo API JSON response.  Does not
@@ -154,7 +198,7 @@ function parse_json(text)
                if j and j < k then -- There are more tags in this block
                   i = j
                   instring = true
-               else -- Block is over, find its ending
+               else -- Block is over, we found its ending
                   i = k
                   inblock = false
                   table.insert(parse_table, block)
@@ -241,3 +285,40 @@ end
 
 -- Retrieve cache on initialization
 retrieve_cache()
+
+-- Returns the track table for given query and search method.
+-- what - search method - SEARCH_ARTIST, ALBUM or TAG
+-- s - string to search
+function search_by(what, s)
+   -- Get a default request and set unit and query
+   local req = search_template
+   req.unit = what.unit
+   req.params.searchquery = s
+   local resp = perform_request(form_request(req))
+   local search_res = parse_json(resp)[1]
+
+   -- Now when we got the search result, find tracks filtered by this
+   -- result.
+   local params = {}
+   params[what.value] = search_res.id
+   req = { params = params }
+   local track_table = return_track_table(req)
+   return { search_res = search_res, tracks = track_table }
+end
+
+-- Executes request_string with io.popen and returns the response.
+function perform_request(reqest_string)
+   local bus = assert(io.popen(reqest_string,'r'))
+   local response = bus:read("*all")
+   bus:close()
+   -- Curl with popen can sometimes fail to fetch data when the
+   -- connection is slow. Let's try again if it fails.
+   if (string.len(response) == 0) then
+      bus = assert(io.popen(reqest_string,'r'))
+      response = bus:read("*all")
+      bus:close()
+      -- If it still can't read anything, we'll throw an error
+      assert(string.len(response) ~= 0)
+   end
+   return response
+end
