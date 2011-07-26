@@ -360,6 +360,18 @@ function try_get_cover(track_name)
    if string.find(track_name, "jamendo.com/stream") then
       return get_album_cover(get_id_from_link(track_name))
    else
+      -- MPD transforms Ogg stream links into normal track names. Good
+      -- for it but bad for us! We don't know if the song is streamed
+      -- from Jamendo anymore. The best we can do for now is to look
+      -- through the whole jamendo_list and compare it with the given
+      -- track name.
+      for _, track in pairs(jamendo_list) do
+         if track.display_name == track_name then
+            return get_album_cover(track.id)
+         end
+      end
+      -- Seems like it is not a Jamendo stream. And even if it is, we
+      -- still can't do anything.
       return nil
    end
 end
