@@ -3,6 +3,19 @@ module('jamendo', package.seeall)
 -- Grab environment
 local os = os
 
+-- UTILITY STUFF
+-- Checks whether file specified by filename exists.
+local function file_exists(filename, mode)
+   mode = mode or 'r'
+   f = io.open(filename, mode)
+   if f then
+      f:close()
+      return true
+   else
+      return false
+   end
+end
+
 -- Global variables
 FORMAT_MP3 = { display = "MP3 (128k)", 
                short_display = "MP3", 
@@ -39,7 +52,8 @@ ALL_ORDERS = { ORDER_RELEVANCE, ORDER_RANDOM, ORDER_RATINGDAILY,
                ORDER_RATINGWEEKLY, ORDER_RATINGTOTAL }
 
 current_request_table = { unit = "track", 
-                          fields = {"id", "artist_name", "name", "stream"},
+                          fields = {"id", "artist_name", "name", 
+                                    "stream", "album_image" },
                           joins = { "track_album", "album_artist" },
                           params = { streamencoding = FORMAT_MP3, 
                                      order = ORDER_RATINGWEEKLY,
@@ -48,6 +62,7 @@ current_request_table = { unit = "track",
 -- Local variables
 local jamendo_list = {}
 local cache_file = awful.util.getdir ("cache").."/jamendo_cache"
+local album_covers_folder = awful.util.getdir("cache") .. "/jamendo_covers/"
 local default_mp3_stream = nil
 local search_template = { fields = { "id", "name" },
                           joins = {},
@@ -84,7 +99,12 @@ end
 
 -- Returns track name for given music stream.
 function get_name_by_link(link)
-   return jamendo_list[get_id_from_link(link)]
+   local id = get_id_from_link(link)
+   if jamendo_list[id] then
+      return jamendo_list[id].display_name
+   else
+      return link
+   end
 end
 
 -- If a track is actually a Jamendo stream, replace it with normal
@@ -112,8 +132,13 @@ function return_track_table(request_table)
       end
       parse_table[i].display_name = 
          parse_table[i].artist_name .. " - " .. parse_table[i].name
+      -- Do Jamendo a favor, extract album_id for the track yourself
+      -- from album_image link :)
+      local _, _, album_id = 
+         string.find(parse_table[i].album_image, "\\/(%d+)\\/covers")
+      parse_table[i].album_id = album_id or 0
       -- Save fetched tracks for further caching
-      jamendo_list[parse_table[i].id] = parse_table[i].display_name
+      jamendo_list[parse_table[i].id] = parse_table[i]
    end
    save_cache()
    return parse_table
@@ -266,23 +291,31 @@ function utf8_codes_to_symbols (s)
    return string.gsub(s, pattern, decode)
 end
 
--- Retrieves mapping of track IDs to track names to avoid redundant
--- queries when Awesome gets restarted.
+-- Retrieves mapping of track IDs to track names and album IDs to
+-- avoid redundant queries when Awesome gets restarted.
 function retrieve_cache()
    local bus = io.open(cache_file)
+   local track = {}
    if bus then
       for l in bus:lines() do
-         local _, _, id, track = string.find(l,"(%d+)-(.+)")
+         local _, _, id, album_id, track_name = 
+            string.find(l,"(%d+)-(%d+)-(.+)")
+         track = {}
+         track.id = id
+         track.album_id = album_id
+         track.display_name = track_name
          jamendo_list[id] = track
       end
    end
 end
 
--- Saves track IDs to track names mapping into the cache file.
+-- Saves track IDs to track names and album IDs mapping into the cache
+-- file.
 function save_cache()
    local bus = io.open(cache_file, "w")
-   for id,name in pairs(jamendo_list) do
-      bus:write(id.."-"..name.."\n")
+   for id,track in pairs(jamendo_list) do
+      bus:write(string.format("%s-%s-%s\n", id, 
+                              track.album_id, track.display_name))
    end
    bus:flush()
    bus:close()
@@ -290,6 +323,46 @@ end
 
 -- Retrieve cache on initialization
 retrieve_cache()
+
+-- Returns a file containing an album cover for given track id.  First
+-- searches in the cache folder. If file is not there, fetches it from
+-- the Internet and saves into the cache folder.
+function get_album_cover(track_id)
+   local track = jamendo_list[track_id]
+   local album_id = track.album_id
+   if album_id == 0 then -- No cover for tracks without album!
+      return nil
+   end
+   local file_path = album_covers_folder .. album_id .. ".jpg"
+   if not file_exists(file_path) then -- We need to download it  
+      -- First check if cache directory exists
+      f = io.popen('test -d ' .. album_covers_folder .. ' && echo t')
+      if f:read("*line") ~= 't' then
+         awful.util.spawn("mkdir " .. album_covers_folder)
+      end
+      f:close()
+
+      f = io.popen("wget " .. track.album_image .. " -O " 
+                   .. file_path .. " > /dev/null")
+      f:close()
+
+      -- Let's check if file is finally there, just in case
+      if not file_exists(file_path) then
+         return nil
+      end
+   end
+   return file_path
+end
+
+-- Checks if track_name is actually a link to Jamendo stream. If true
+-- returns the file with album cover for the track.
+function try_get_cover(track_name)
+   if string.find(track_name, "jamendo.com/stream") then
+      return get_album_cover(get_id_from_link(track_name))
+   else
+      return nil
+   end
+end
 
 -- Returns the track table for given query and search method.
 -- what - search method - SEARCH_ARTIST, ALBUM or TAG
@@ -300,16 +373,18 @@ function search_by(what, s)
    req.unit = what.unit
    req.params.searchquery = s
    local resp = perform_request(form_request(req))
-   if resp and string.len(resp) > 0 then
+   if resp then
       local search_res = parse_json(resp)[1]
       
-      -- Now when we got the search result, find tracks filtered by
-      -- this result.
-      local params = {}
-      params[what.value] = search_res.id
-      req = { params = params }
-      local track_table = return_track_table(req)
-      return { search_res = search_res, tracks = track_table }
+      if search_res then
+         -- Now when we got the search result, find tracks filtered by
+         -- this result.
+         local params = {}
+         params[what.value] = search_res.id
+         req = { params = params }
+         local track_table = return_track_table(req)
+         return { search_res = search_res, tracks = track_table }
+      end
    end
 end
 
@@ -324,8 +399,10 @@ function perform_request(reqest_string)
       bus = assert(io.popen(reqest_string,'r'))
       response = bus:read("*all")
       bus:close()
-      -- If it still can't read anything, we'll throw an error
-      assert(string.len(response) ~= 0)
+      -- If it still can't read anything, return nil
+      if (string.len(response) ~= 0) then
+         return nil
+      end
    end
    return response
 end
@@ -339,4 +416,3 @@ end
 function set_current_order(order)
    current_request_table.params.order = order
 end
-

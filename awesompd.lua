@@ -83,6 +83,7 @@ function awesompd:create()
    instance.status_text = "Stopped"
    instance.to_notify = false
    instance.connected = true
+   instance.album_cover = nil
 
    instance.recreate_menu = true
    instance.recreate_playback = true
@@ -103,6 +104,8 @@ function awesompd:create()
    instance.path_to_icons = ""
    instance.ldecorator = " "
    instance.rdecorator = " "
+   instance.show_jamendo_album_covers = true
+   instance.album_cover_size = 50
 
 -- Widget configuration
    instance.widget:add_signal("mouse::enter", function(c)
@@ -279,7 +282,8 @@ function awesompd:command_jamendo_search_by(what)
                                            track_count))
                    else
                       self:add_hint("Search failed",
-                                    what.display .. " " .. s .. " was not found")
+                                    format("%s \"%s\" was not found",
+                                           what.display, s))
                    end
                 end
              self:display_inputbox("Search music on Jamendo",
@@ -576,12 +580,15 @@ end
 
 -- /// End of menu generation functions ///
 
-function awesompd:add_hint(hint_title, hint_text)
+function awesompd:add_hint(hint_title, hint_text, hint_image)
    self:remove_hint()
+   hint_image = self.show_jamendo_album_covers and hint_image or nil
    self.notification = naughty.notify({ title      =  hint_title
 					, text       = awesompd.protect_string(hint_text)
 					, timeout    = 5
 					, position   = "top_right"
+                                        , icon       = hint_image
+                                        , icon_size  = self.album_cover_size
 				     })
 end
 
@@ -594,7 +601,7 @@ end
 
 function awesompd:notify_track()
    if self.status ~= "Stopped" then
-      self:add_hint(self.status_text, self.text)
+      self:add_hint(self.status_text, self.text, self.album_cover)
    end
 end
 
@@ -714,6 +721,7 @@ function awesompd:update_track(file)
       end
       if string.find(track_line,"volume:") then
 	 self.text = "MPD stopped"
+         self.album_cover = nil
          self.unique_text = self.text
 	 if self.status ~= "Stopped" then
 	    self.status = "Stopped"
@@ -729,6 +737,7 @@ function awesompd:update_track(file)
 	 if new_track ~= self.unique_text then
             self.text = jamendo.replace_link(new_track)
             self.unique_text = new_track
+            self.album_cover = jamendo.try_get_cover(new_track)
 	    self.to_notify = true
 	    self.recreate_menu = true
 	    self.recreate_playback = true
