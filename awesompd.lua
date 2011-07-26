@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt;
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v0.9.5
+-- @release v1.0
 ---------------------------------------------------------------------------
 
 require('utf8')
@@ -121,6 +121,10 @@ end
 function awesompd:run()
    enable_dbg = self.debug_mode
    jamendo.set_current_format(self.jamendo_format)
+   if self.album_cover_size > 100 then
+      self.album_cover_size = 100
+   end
+
    self:update_track()
    self:check_playlists()
    self.load_icons(self.path_to_icons)

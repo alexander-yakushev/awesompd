@@ -6,7 +6,6 @@ require("awful.rules")
 require("beautiful")
 -- Notification library
 require("naughty")
-require("awesompd")
 
 -- Load Debian menu entries
 require("debian.menu")
@@ -80,14 +79,38 @@ mytextclock = awful.widget.textclock({ align = "right" })
 -- Create a systray
 mysystray = widget({ type = "systray" })
 
--- Create a wibox for each screen and add it
+-- BEGIN OF AWESOMPD WIDGET DECLARATION
+
+  require('awesompd')
 
   musicwidget = awesompd:create() -- Create awesompd widget
   musicwidget.font = "Liberation Mono" -- Set widget font 
   musicwidget.scrolling = true -- If true, the text in the widget will be scrolled
   musicwidget.output_size = 30 -- Set the size of widget in symbols
   musicwidget.update_interval = 10 -- Set the update interval in seconds
-  musicwidget.path_to_icons = "/home/unlogic/.config/awesome/icons" -- Set the folder where icons are located (change username to your login name)
+
+  -- Set the folder where icons are located (change username to your login name)
+  musicwidget.path_to_icons = "/home/username/.config/awesome/icons" 
+
+  -- Set the default music format for Jamendo streams. You can change
+  -- this option on the fly in awesompd itself.
+  -- possible formats: awesompd.FORMAT_MP3, awesompd.FORMAT_OGG
+  musicwidget.jamendo_format = awesompd.FORMAT_MP3
+
+  -- If true, song notifications for Jamendo tracks will also contain
+  -- album cover image.
+  instance.show_jamendo_album_covers = true
+
+  -- Specify how big in pixels should an album cover be. Maximum value
+  -- is 100.
+  instance.album_cover_size = 50
+
+  -- Specify decorators on the left and the right side of the
+  -- widget. Or just leave empty strings if you decorate the widget
+  -- from outside.
+  musicwidget.ldecorator = " "
+  musicwidget.rdecorator = " "
+
   -- Set all the servers to work with (here can be any servers you use)
   musicwidget.servers = {
      { server = "localhost",
@@ -95,6 +118,7 @@ mysystray = widget({ type = "systray" })
      { server = "192.168.0.72",
           port = 6600 }
   }
+
   -- Set the buttons of the widget
   musicwidget:register_buttons({ { "", awesompd.MOUSE_LEFT, musicwidget:command_toggle() },
      			       { "Control", awesompd.MOUSE_SCROLL_UP, musicwidget:command_prev_track() },
@@ -102,7 +126,10 @@ mysystray = widget({ type = "systray" })
   			       { "", awesompd.MOUSE_SCROLL_UP, musicwidget:command_volume_up() },
   			       { "", awesompd.MOUSE_SCROLL_DOWN, musicwidget:command_volume_down() },
   			       { "", awesompd.MOUSE_RIGHT, musicwidget:command_show_menu() } })
-  musicwidget:run()
+  musicwidget:run() -- After all configuration is done, run the widget
+
+-- END OF AWESOMPD WIDGET DECLARATION
+-- Don't forget to add the widget to the wibox. It is done on the line 202.
 
 mywibox = {}
 mypromptbox = {}
@@ -173,7 +200,7 @@ for s = 1, screen.count() do
         },
         mylayoutbox[s],
         mytextclock,
-	musicwidget.widget,
+	musicwidget.widget, -- Awesompd widget is added like this
         s == 1 and mysystray or nil,
         mytasklist[s],
         layout = awful.widget.layout.horizontal.rightleft

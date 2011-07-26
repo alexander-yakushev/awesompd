@@ -77,7 +77,7 @@ function get_default_mp3_stream()
       local trygetlink = 
          perform_request("echo $(curl -w %{redirect_url} " .. 
                          "'http://api.jamendo.com/get2/stream/track/redirect/" .. 
-                         "?streamencoding="..format.."&id=729304')")
+                         "?streamencoding="..FORMAT_MP3.value.."&id=729304')")
       local _, _, prefix = string.find(trygetlink,"stream(%d+)\.jamendo\.com")
       default_mp3_stream = { id = prefix, last_checked = os.time() }
    end
