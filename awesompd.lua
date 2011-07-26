@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt;
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v0.9.1
+-- @release v0.9.5
 ---------------------------------------------------------------------------
 
 require('utf8')
@@ -9,7 +9,7 @@ require('jamendo')
 local beautiful = require('beautiful')
 local naughty = naughty
 local awful = awful
-
+local format = string.format
 
 -- Debug stuff
 
@@ -33,6 +33,8 @@ awesompd.NOTIFY_REPEAT = 2
 awesompd.NOTIFY_RANDOM = 3
 awesompd.NOTIFY_SINGLE = 4
 awesompd.NOTIFY_CONSUME = 5
+awesompd.FORMAT_MP3 = jamendo.FORMAT_MP3
+awesompd.FORMAT_OGG = jamendo.FORMAT_OGG
 awesompd.ESCAPE_SYMBOL_MAPPING = {}
 awesompd.ESCAPE_SYMBOL_MAPPING["&"] = "&amp;"
 -- Menus do not handle symbol escaping correctly, so they need their
@@ -87,6 +89,8 @@ function awesompd:create()
    instance.recreate_list = true
    instance.recreate_servers = true
    instance.recreate_options = true
+   instance.recreate_jamendo_formats = true
+   instance.recreate_jamendo_order = true
    instance.current_number = 0
    instance.menu_shown = false 
 
@@ -113,6 +117,7 @@ end
 -- Registers timers for the widget
 function awesompd:run()
    enable_dbg = self.debug_mode
+   jamendo.set_current_format(self.jamendo_format)
    self:update_track()
    self:check_playlists()
    self.load_icons(self.path_to_icons)
@@ -259,12 +264,26 @@ function awesompd:command_replace_playlist(name)
           end
 end
 
--- TODO: make usable prompt
-function awesompd:command_echo_prompt()
+function awesompd:command_jamendo_search_by(what)
    return function()
-             self:run_prompt("Sample text: ",function(s)
-                                                self:add_hint("Prompt",s)
-                                             end)
+             local callback = 
+                function(s)
+                   local result = jamendo.search_by(what, s)
+                   if result then
+                      local track_count = table.getn(result.tracks)
+                      self:add_jamendo_tracks(result.tracks)
+                      self:add_hint(format("%s \"%s\" was found",
+                                           what.display,
+                                           result.search_res.name),
+                                    format("Added %s tracks to the playlist",
+                                           track_count))
+                   else
+                      self:add_hint("Search failed",
+                                    what.display .. " " .. s .. " was not found")
+                   end
+                end
+             self:display_inputbox("Search music on Jamendo",
+                                   what.display, callback)
           end
 end
 
@@ -289,9 +308,14 @@ function awesompd:command_show_menu()
                    table.insert(new_menu, { "List", self:get_list_menu() })
                    table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
                    table.insert(new_menu, 
-                                { "Jamendo Top 100", 
-                                  { { "MP3", self:add_jamendo_top("mp31") }, 
-                                    { "Ogg Vorbis", self:add_jamendo_top("ogg2") }}})
+                                { "Jamendo",
+                                  { { "Search by", 
+                                      { { "Nothing (Top 100)", self:add_jamendo_top() },
+                                        { "Artist", self:command_jamendo_search_by(jamendo.SEARCH_ARTIST) },
+                                        { "Album", self:command_jamendo_search_by(jamendo.SEARCH_ALBUM) },
+                                        { "Tag", self:command_jamendo_search_by(jamendo.SEARCH_TAG) }}},
+                                    self:get_jamendo_formats_menu(),
+                                    self:get_jamendo_order_menu() }})
                 end 
                 table.insert(new_menu, { "Servers", self:get_servers_menu() }) 
                 self.main_menu = awful.menu({ items = new_menu, width = 300 }) 
@@ -301,15 +325,24 @@ function awesompd:command_show_menu()
           end 
 end
    
-function awesompd:add_jamendo_top(format)
-   return function ()
-             local track_table = jamendo.return_track_table()
-             for i = 1,table.getn(track_table) do
-                self:command("add " .. track_table[i].stream)
-             end
-             self.recreate_menu = true
-             self.recreate_list = true
-          end
+function awesompd:add_jamendo_top()
+   return 
+   function ()
+      local track_table = jamendo.return_track_table()
+      self:add_jamendo_tracks(track_table)
+      self:add_hint("Jamendo Top 100 by " .. 
+                    jamendo.current_request_table.params.order.short_display,
+                 format("Added %s tracks to the playlist",
+                        table.getn(track_table)))
+   end
+end
+
+function awesompd:add_jamendo_tracks(track_table)
+   for i = 1,table.getn(track_table) do
+      self:command("add " .. track_table[i].stream)
+   end
+   self.recreate_menu = true
+   self.recreate_list = true
 end
 
 -- Returns the playback menu. Menu contains of:
@@ -426,6 +459,74 @@ function awesompd:get_options_menu()
    return self.options_menu
 end
 
+function awesompd:command_jamendo_set_format(format)
+   return function()
+             jamendo.current_request_table.params.streamencoding = format
+          end
+end
+
+function awesompd:get_jamendo_formats_menu()
+   if self.recreate_jamendo_formats then
+      local setformat =
+         function(format)
+            return function()
+                      jamendo.set_current_format(format)
+                      self.recreate_menu = true
+                      self.recreate_jamendo_formats = true
+                   end
+         end
+
+      local iscurr = 
+         function(f)
+            return jamendo.current_request_table.params.streamencoding.value
+               == f.value
+         end
+
+      local new_menu = {}
+      for _, format in pairs(jamendo.ALL_FORMATS) do
+         table.insert(new_menu, { format.display, setformat(format),
+                                  iscurr(format) and self.ICONS.RADIO or nil})
+      end
+      self.recreate_jamendo_formats = false
+      self.jamendo_formats_menu = { 
+         "Format: " ..
+            jamendo.current_request_table.params.streamencoding.short_display,
+         new_menu }
+   end
+   return self.jamendo_formats_menu
+end
+
+function awesompd:get_jamendo_order_menu()
+   if self.recreate_jamendo_order then
+      local setorder =
+         function(order)
+            return function()
+                      jamendo.set_current_order(order)
+                      self.recreate_menu = true
+                      self.recreate_jamendo_order = true
+                   end
+         end
+
+      local iscurr = 
+         function(o)
+            return jamendo.current_request_table.params.order.value
+               == o.value
+         end
+
+      local new_menu = {}
+      for _, order in pairs(jamendo.ALL_ORDERS) do
+         table.insert(new_menu, { order.display, setorder(order),
+                                  iscurr(order) and self.ICONS.RADIO or nil})
+      end
+      self.recreate_jamendo_order = false
+      self.jamendo_order_menu = { 
+         "Order: " ..
+            jamendo.current_request_table.params.order.short_display,
+         new_menu }
+   end
+   return self.jamendo_order_menu
+end
+
 -- Checks if the current playlist has changed after the last check.
 function awesompd:check_list()
    local bus = io.popen(self:mpcquery() .. "playlist")
@@ -513,9 +614,9 @@ function awesompd:notify_state(state_changed)
 end
 
 function awesompd:wrap_output(text)
-   return string.format('<span font="%s">%s%s%s</span>', 
-                        self.font, self.ldecorator, 
-                        awesompd.protect_string(text), self.rdecorator)
+   return format('<span font="%s">%s%s%s</span>', 
+                 self.font, self.ldecorator, 
+                 awesompd.protect_string(text), self.rdecorator)
 end
 
 function awesompd.split (s,t)
@@ -699,10 +800,12 @@ function awesompd.protect_string(str, for_menu)
    end
 end
 
--- Displays a inputbox on the screen (looks like naugty with prompt).
--- title_text - bold text in the first line
+-- Displays a inputbox on the screen (looks like naughty with prompt).
+-- title_text - bold text on the first line
 -- prompt_text - preceding text on the second line
 -- hook - function that will be called with input data
+-- Use it like this:
+-- self:display_inputbox("Search music on Jamendo", "Artist", print)
 function awesompd:display_inputbox(title_text, prompt_text, hook)
    if self.inputbox then -- Inputbox already exists, do nothing
       return
@@ -737,6 +840,3 @@ function awesompd:display_inputbox(title_text, prompt_text, hook)
    awful.prompt.run( { prompt = " " .. prompt_text .. ": " }, wprompt.widget, 
                      exe_callback, nil, nil, nil, done_callback)
 end
-
--- Use it like this
--- self:display_inputbox("Search music on Jamendo", "Artist", print)

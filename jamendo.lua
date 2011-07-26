@@ -3,15 +3,6 @@ module('jamendo', package.seeall)
 -- Grab environment
 local os = os
 
--- Local variables
-local jamendo_list = {}
-local cache_file = awful.util.getdir ("cache").."/jamendo_cache"
-local default_mp3_stream = nil
-local search_template = { fields = { "id", "name" },
-                          joins = {},
-                          params = { order = ORDER_RELEVANCE,
-                                     n = 1}}
-
 -- Global variables
 FORMAT_MP3 = { display = "MP3 (128k)", 
                short_display = "MP3", 
@@ -31,7 +22,9 @@ ORDER_RATINGTOTAL = { display = "All time rating",
 ORDER_RANDOM = { display = "Random", 
                  short_display = "random", 
                  value = "random_desc" }
-ORDER_RELEVANCE = { value = "searchweight_desc" }
+ORDER_RELEVANCE = { display = "None (consecutive)", 
+                    short_display = "none",
+                    value = "searchweight_desc" }
 SEARCH_ARTIST = { display = "Artist",
                   unit = "artist",
                   value = "artist_id" }
@@ -41,6 +34,9 @@ SEARCH_ALBUM = { display = "Album",
 SEARCH_TAG = { display = "Tag",
                unit = "tag",
                value = "tag_id" }
+ALL_FORMATS = { FORMAT_MP3, FORMAT_OGG }
+ALL_ORDERS = { ORDER_RELEVANCE, ORDER_RANDOM, ORDER_RATINGDAILY, 
+               ORDER_RATINGWEEKLY, ORDER_RATINGTOTAL }
 
 current_request_table = { unit = "track", 
                           fields = {"id", "artist_name", "name", "stream"},
@@ -48,6 +44,15 @@ current_request_table = { unit = "track",
                           params = { streamencoding = FORMAT_MP3, 
                                      order = ORDER_RATINGWEEKLY,
                                      n = 100 }}
+
+-- Local variables
+local jamendo_list = {}
+local cache_file = awful.util.getdir ("cache").."/jamendo_cache"
+local default_mp3_stream = nil
+local search_template = { fields = { "id", "name" },
+                          joins = {},
+                          params = { order = ORDER_RELEVANCE,
+                                     n = 1}}
 
 -- Returns default stream number for MP3 format. Requests API for it
 -- not more often than every hour.
@@ -161,10 +166,10 @@ function form_request(request_table)
    local param_string = ""
    for k, v in pairs(params) do
       if type(v) == "table" then
-         param_string = param_string .. k .. "=" .. v.value .. "&"
-      else
-         param_string = param_string .. k .. "=" .. v .. "&"
+         v = v.value
       end
+      v = string.gsub(v, " ", "+")
+      param_string = param_string .. k .. "=" .. v .. "&"
    end
    param_string = string.sub(param_string,1,string.len(param_string)-1)
 
@@ -295,15 +300,17 @@ function search_by(what, s)
    req.unit = what.unit
    req.params.searchquery = s
    local resp = perform_request(form_request(req))
-   local search_res = parse_json(resp)[1]
-
-   -- Now when we got the search result, find tracks filtered by this
-   -- result.
-   local params = {}
-   params[what.value] = search_res.id
-   req = { params = params }
-   local track_table = return_track_table(req)
-   return { search_res = search_res, tracks = track_table }
+   if resp and string.len(resp) > 0 then
+      local search_res = parse_json(resp)[1]
+      
+      -- Now when we got the search result, find tracks filtered by
+      -- this result.
+      local params = {}
+      params[what.value] = search_res.id
+      req = { params = params }
+      local track_table = return_track_table(req)
+      return { search_res = search_res, tracks = track_table }
+   end
 end
 
 -- Executes request_string with io.popen and returns the response.
@@ -322,3 +329,14 @@ function perform_request(reqest_string)
    end
    return response
 end
+
+-- Sets default streamencoding in current_request_table.
+function set_current_format(format)
+   current_request_table.params.streamencoding = format
+end
+
+-- Sets default order in current_request_table.
+function set_current_order(order)
+   current_request_table.params.order = order
+end
+
