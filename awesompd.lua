@@ -367,7 +367,7 @@ function awesompd:get_playback_menu()
                                self:command_toggle(), 
                                self.ICONS.PLAY_PAUSE })
       if self.connected and self.status ~= "Stopped" then
-         if self.current_number ~= 1 then
+         if self.list_array[self.current_number-1] then
             table.insert(new_menu, 
                          { "Prev: " .. 
                            awesompd.protect_string(jamendo.replace_link(

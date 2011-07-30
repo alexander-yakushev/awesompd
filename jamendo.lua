@@ -330,10 +330,12 @@ retrieve_cache()
 function get_album_cover(track_id)
    local track = jamendo_list[track_id]
    local album_id = track.album_id
+
    if album_id == 0 then -- No cover for tracks without album!
       return nil
    end
    local file_path = album_covers_folder .. album_id .. ".jpg"
+
    if not file_exists(file_path) then -- We need to download it  
       -- First check if cache directory exists
       f = io.popen('test -d ' .. album_covers_folder .. ' && echo t')
@@ -341,7 +343,16 @@ function get_album_cover(track_id)
          awful.util.spawn("mkdir " .. album_covers_folder)
       end
       f:close()
-
+      
+      if not track.album_image then      -- Wow! We have album_id, but
+         local a_id = tostring(album_id) --don't have album_image. Well,
+         local prefix =                  --it happens.
+            string.sub(a_id, 1, string.len(a_id) - 3) 
+         track.album_image = 
+            string.format("http://imgjam.com/albums/s%s/%s/covers/1.100.jpg",
+                          prefix, a_id)
+      end
+      
       f = io.popen("wget " .. track.album_image .. " -O " 
                    .. file_path .. " > /dev/null")
       f:close()
