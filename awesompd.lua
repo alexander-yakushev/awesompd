@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt;
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v1.0
+-- @release v1.0.2
 ---------------------------------------------------------------------------
 
 require('utf8')
@@ -66,6 +66,8 @@ function awesompd.load_icons(path)
    awesompd.ICONS.PREV = awesompd.try_load(path .. "/prev_icon.png")
    awesompd.ICONS.CHECK = awesompd.try_load(path .. "/check_icon.png")
    awesompd.ICONS.RADIO = awesompd.try_load(path .. "/radio_icon.png")
+   awesompd.ICONS.DEFAULT_ALBUM_COVER = 
+      awesompd.try_load(path .. "/default_album_cover.png")
 end
 
 -- Function that returns a new awesompd object.
@@ -93,7 +95,7 @@ function awesompd:create()
    instance.recreate_jamendo_formats = true
    instance.recreate_jamendo_order = true
    instance.current_number = 0
-   instance.menu_shown = false 
+   instance.menu_shown = false
 
 -- Default user options
    instance.servers = { { server = "localhost", port = 6600 } }
@@ -106,7 +108,8 @@ function awesompd:create()
    instance.rdecorator = " "
    instance.show_jamendo_album_covers = true
    instance.album_cover_size = 50
-
+   instance.show_local_album_covers = true
+   
 -- Widget configuration
    instance.widget:add_signal("mouse::enter", function(c)
                                                  instance:notify_track()
@@ -174,12 +177,22 @@ end
 
 -- /// Group of mpc command functions ///
 
+-- Takes a command to mpc and a hook that is provided with awesompd
+-- instance and the result of command execution.
 function awesompd:command(com,hook)
    local file = io.popen(self:mpcquery() .. com)
    if hook then
       hook(self,file)
    end
    file:close()
+end
+
+-- Takes a command to mpc and read mode and returns the result.
+function awesompd:command_read(com, mode)
+   self:command(com, function(_, f)
+                        result = f:read(mode)
+                     end)
+   return result
 end
 
 function awesompd:command_toggle()
@@ -586,7 +599,8 @@ end
 
 function awesompd:add_hint(hint_title, hint_text, hint_image)
    self:remove_hint()
-   hint_image = self.show_jamendo_album_covers and hint_image or nil
+   hint_image = self.show_jamendo_album_covers and hint_image or
+      self.show_local_album_covers and self:try_get_local_cover() or nil
    self.notification = naughty.notify({ title      =  hint_title
 					, text       = awesompd.protect_string(hint_text)
 					, timeout    = 5
@@ -813,7 +827,7 @@ function awesompd.protect_string(str, for_menu)
    end
 end
 
--- Displays a inputbox on the screen (looks like naughty with prompt).
+-- Displays an inputbox on the screen (looks like naughty with prompt).
 -- title_text - bold text on the first line
 -- prompt_text - preceding text on the second line
 -- hook - function that will be called with input data
@@ -852,4 +866,50 @@ function awesompd:display_inputbox(title_text, prompt_text, hook)
    wbox.widgets = { wtbox, wprompt, layout = awful.widget.layout.vertical.flex }
    awful.prompt.run( { prompt = " " .. prompt_text .. ": " }, wprompt.widget, 
                      exe_callback, nil, nil, nil, done_callback)
+end
+
+-- Tries to find an album cover for the track that is currently
+-- playing.
+function awesompd:try_get_local_cover()
+   local result = self.ICONS.DEFAULT_ALBUM_COVER
+   if self.show_local_album_covers and self.mpd_config then
+      -- First find the music directory in MPD configuration file
+      local _, _, music_folder = string.find(
+         io.popen('cat ' .. self.mpd_config .. ' | grep -v "#" | grep music_directory'):read("*line"),
+         'music_directory%s+"(.+)"')
+      music_folder = music_folder .. "/"
+      dbg("musfolder", music_folder)
+
+      -- Get the path to the file currently playing.
+      local _, _, current_file_folder = 
+         string.find(self:command_read('current -f "%file%"', "*line"), '(.+%/).*')
+
+      local folder = music_folder .. current_file_folder
+      dbg("folder", folder)
+      -- Get all images in the folder
+      local covers_bus = io.popen('ls "' .. folder .. '" | grep -P "\.jpg\|\.png\|\.gif"')
+      dbg('wtf', 'ls "' .. folder .. '" | grep "\.jpg\|\.png\|\.gif"')
+      local covers = {}
+      for l in covers_bus:lines() do
+         dbg('here')
+         table.insert(covers, l)
+      end
+      dbg('first', covers[1])
+
+      if table.getn(covers) > 0 then
+         result = folder .. covers[1]
+         for i = 2, table.getn(covers) do
+            -- Searching for front cover with grep because Lua regular
+            -- expressions suck:[
+            local front_cover = 
+               io.popen('echo "' .. covers[i] .. 
+                        '" | grep -i "cover\|front\|folder\|albumart" | head -n 1')
+            if front_cover then
+               result = folder .. front_cover
+               break
+            end
+         end
+      end
+   end   
+   return result
 end

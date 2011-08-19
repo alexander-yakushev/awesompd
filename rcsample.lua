@@ -99,11 +99,11 @@ mysystray = widget({ type = "systray" })
 
   -- If true, song notifications for Jamendo tracks will also contain
   -- album cover image.
-  instance.show_jamendo_album_covers = true
+  musicwidget.show_jamendo_album_covers = true
 
   -- Specify how big in pixels should an album cover be. Maximum value
   -- is 100.
-  instance.album_cover_size = 50
+  musicwidget.album_cover_size = 50
 
   -- Specify decorators on the left and the right side of the
   -- widget. Or just leave empty strings if you decorate the widget

@@ -1,3 +1,9 @@
+---------------------------------------------------------------------------
+-- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt;
+-- @copyright 2011 Alexander Yakushev
+-- @release v1.0.2
+---------------------------------------------------------------------------
+
 module('jamendo', package.seeall)
 
 -- Grab environment
