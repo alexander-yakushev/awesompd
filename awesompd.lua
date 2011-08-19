@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
--- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt;
+-- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v1.0.2
+-- @release v1.0.4
 ---------------------------------------------------------------------------
 
 require('utf8')
@@ -52,7 +52,7 @@ function awesompd.try_load(file)
    end
 end
 
--- Just like awful.util.pread, but takes an argument to read like
+-- Just like awful.util.pread, but takes an argument how to read like
 -- "*line" or "*all".
 function awesompd.pread(com, mode)
    local f = io.popen(com, 'r')
@@ -651,6 +651,10 @@ end
 
 function awesompd.split(s)
    local l = { n = 0 }
+   if s == "" then
+      return l
+   end
+   s = s .. "\n"
    local f = function (s) 
                 l.n = l.n + 1
 		l[l.n] = s
@@ -879,6 +883,7 @@ end
 -- folders. If there is no cover art either returns the default album
 -- cover.
 function awesompd:get_cover(track)
+   dbg(self.ICONS.DEFAULT_ALBUM_COVER)
    return jamendo.try_get_cover(track) or 
    self:try_get_local_cover() or self.ICONS.DEFAULT_ALBUM_COVER
 end
@@ -887,27 +892,23 @@ end
 -- playing.
 function awesompd:try_get_local_cover()
    if self.mpd_config then
+      local result
       -- First find the music directory in MPD configuration file
       local _, _, music_folder = string.find(
          self.pread('cat ' .. self.mpd_config .. ' | grep -v "#" | grep music_directory', "*line"),
          'music_directory%s+"(.+)"')
       music_folder = music_folder .. "/"
-      dbg("musfolder", music_folder)
 
       -- Get the path to the file currently playing.
       local _, _, current_file_folder = 
          string.find(self:command_read('current -f "%file%"', "*line"), '(.+%/).*')
 
       local folder = music_folder .. current_file_folder
-      dbg("folder", folder)
       
       -- Get all images in the folder
       local covers = self.pread('ls "' .. folder .. '" | grep -P "\.jpg\|\.png\|\.gif"', "*all")
       local covers_table = self.split(covers)
       
-      dbg('wtf', 'ls "' .. folder .. '" | grep "\.jpg\|\.png\|\.gif"')
-      dbg('first', covers)
-
       if covers_table.n > 0 then
          result = folder .. covers_table[1]
          if covers_table.n > 1 then
@@ -921,6 +922,6 @@ function awesompd:try_get_local_cover()
             end
          end
       end
+      return result
    end   
-   return result
 end

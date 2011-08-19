@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
--- @author Alexander Yakushev &lt;yakushev.alex@gmail.com&gt;
+-- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2011 Alexander Yakushev
--- @release v1.0.2
+-- @release v1.0.4
 ---------------------------------------------------------------------------
 
 module('jamendo', package.seeall)

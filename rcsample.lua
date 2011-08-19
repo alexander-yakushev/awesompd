@@ -97,14 +97,18 @@ mysystray = widget({ type = "systray" })
   -- possible formats: awesompd.FORMAT_MP3, awesompd.FORMAT_OGG
   musicwidget.jamendo_format = awesompd.FORMAT_MP3
 
-  -- If true, song notifications for Jamendo tracks will also contain
-  -- album cover image.
-  musicwidget.show_jamendo_album_covers = true
+  -- If true, song notifications for Jamendo tracks and local tracks
+  -- will also contain album cover image.
+  musicwidget.show_album_cover = true
 
   -- Specify how big in pixels should an album cover be. Maximum value
   -- is 100.
   musicwidget.album_cover_size = 50
-
+  
+  -- This option is necessary if you want the album covers to be shown
+  -- for your local tracks.
+  musicwidget.mpd_config = "/home/username/.mpdconf"
+  
   -- Specify decorators on the left and the right side of the
   -- widget. Or just leave empty strings if you decorate the widget
   -- from outside.
@@ -129,7 +133,7 @@ mysystray = widget({ type = "systray" })
   musicwidget:run() -- After all configuration is done, run the widget
 
 -- END OF AWESOMPD WIDGET DECLARATION
--- Don't forget to add the widget to the wibox. It is done on the line 202.
+-- Don't forget to add the widget to the wibox. It is done on the line 207.
 
 mywibox = {}
 mypromptbox = {}
