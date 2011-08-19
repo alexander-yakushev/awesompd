@@ -114,9 +114,8 @@ function awesompd:create()
    instance.path_to_icons = ""
    instance.ldecorator = " "
    instance.rdecorator = " "
-   instance.show_jamendo_album_covers = true
+   instance.show_album_cover = true
    instance.album_cover_size = 50
-   instance.show_local_album_covers = true
    
 -- Widget configuration
    instance.widget:add_signal("mouse::enter", function(c)
@@ -131,6 +130,7 @@ end
 -- Registers timers for the widget
 function awesompd:run()
    enable_dbg = self.debug_mode
+   self.load_icons(self.path_to_icons)
    jamendo.set_current_format(self.jamendo_format)
    if self.album_cover_size > 100 then
       self.album_cover_size = 100
@@ -138,7 +138,6 @@ function awesompd:run()
 
    self:update_track()
    self:check_playlists()
-   self.load_icons(self.path_to_icons)
    self.update_widget_timer = timer({ timeout = 1 })
    self.update_widget_timer:add_signal("timeout", function() 
                                                      self:update_widget() 
@@ -607,8 +606,6 @@ end
 
 function awesompd:add_hint(hint_title, hint_text, hint_image)
    self:remove_hint()
-   hint_image = self.show_jamendo_album_covers and hint_image or
-      self.show_local_album_covers and self:try_get_local_cover() or nil
    self.notification = naughty.notify({ title      =  hint_title
 					, text       = awesompd.protect_string(hint_text)
 					, timeout    = 5
@@ -762,7 +759,9 @@ function awesompd:update_track(file)
 	 if new_track ~= self.unique_text then
             self.text = jamendo.replace_link(new_track)
             self.unique_text = new_track
-            self.album_cover = jamendo.try_get_cover(new_track)
+            if self.show_album_cover then
+               self.album_cover = self:get_cover(new_track)
+            end
 	    self.to_notify = true
 	    self.recreate_menu = true
 	    self.recreate_playback = true
@@ -875,11 +874,19 @@ function awesompd:display_inputbox(title_text, prompt_text, hook)
                      exe_callback, nil, nil, nil, done_callback)
 end
 
+-- Gets the cover for the given track. First looks in the Jamendo
+-- cache. If the track is not a Jamendo stream, looks in local
+-- folders. If there is no cover art either returns the default album
+-- cover.
+function awesompd:get_cover(track)
+   return jamendo.try_get_cover(track) or 
+   self:try_get_local_cover() or self.ICONS.DEFAULT_ALBUM_COVER
+end
+
 -- Tries to find an album cover for the track that is currently
 -- playing.
 function awesompd:try_get_local_cover()
-   local result = self.ICONS.DEFAULT_ALBUM_COVER
-   if self.show_local_album_covers and self.mpd_config then
+   if self.mpd_config then
       -- First find the music directory in MPD configuration file
       local _, _, music_folder = string.find(
          self.pread('cat ' .. self.mpd_config .. ' | grep -v "#" | grep music_directory', "*line"),
