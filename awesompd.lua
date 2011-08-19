@@ -47,13 +47,21 @@ awesompd.ESCAPE_MENU_SYMBOL_MAPPING["&"] = "'n'"
 -- Helper function for loading icons.  Checks if an icon exists, and
 -- if it does, returns the path to icon, nil otherwise.
 function awesompd.try_load(file)
-   local f = io.open(file)
-   if f then
-      io.close(f)
+   if awful.util.file_readable(file) then
       return file
-   else
-      return nil
    end
+end
+
+-- Just like awful.util.pread, but takes an argument to read like
+-- "*line" or "*all".
+function awesompd.pread(com, mode)
+   local f = io.popen(com, 'r')
+   local result = nil
+   if f then
+      result = f:read(mode)
+      f:close()
+   end
+   return result
 end
 
 function awesompd.load_icons(path)
@@ -556,7 +564,7 @@ function awesompd:check_list()
    if info ~= self.list_line then
       self.list_line = info
       if string.len(info) > 0 then
-	 self.list_array = self.split(string.sub(info,1,string.len(info)),"\n")
+	 self.list_array = self.split(string.sub(info,1,string.len(info)))
       else
 	 self.list_array = {}
       end
@@ -573,7 +581,7 @@ function awesompd:check_playlists()
    if info ~= self.playlists_line then
       self.playlists_line = info
       if string.len(info) > 0 then
-	 self.playlists_array = self.split(info,"\n")
+	 self.playlists_array = self.split(info)
       else
 	 self.playlists_array = {}
       end
@@ -644,15 +652,14 @@ function awesompd:wrap_output(text)
                  awesompd.protect_string(text), self.rdecorator)
 end
 
-function awesompd.split (s,t)
-   local l = {n=0}
-   local f = function (s)
-		l.n = l.n + 1
+function awesompd.split(s)
+   local l = { n = 0 }
+   local f = function (s) 
+                l.n = l.n + 1
 		l[l.n] = s
 	     end
-   local p = "%s*(.-)%s*"..t.."%s*"
+   local p = "%s*(.-)%s*\n%s*"
    s = string.gsub(s,p,f)
-   l.n = l.n + 1
    return l
 end
 
@@ -875,7 +882,7 @@ function awesompd:try_get_local_cover()
    if self.show_local_album_covers and self.mpd_config then
       -- First find the music directory in MPD configuration file
       local _, _, music_folder = string.find(
-         io.popen('cat ' .. self.mpd_config .. ' | grep -v "#" | grep music_directory'):read("*line"),
+         self.pread('cat ' .. self.mpd_config .. ' | grep -v "#" | grep music_directory', "*line"),
          'music_directory%s+"(.+)"')
       music_folder = music_folder .. "/"
       dbg("musfolder", music_folder)
@@ -886,27 +893,24 @@ function awesompd:try_get_local_cover()
 
       local folder = music_folder .. current_file_folder
       dbg("folder", folder)
+      
       -- Get all images in the folder
-      local covers_bus = io.popen('ls "' .. folder .. '" | grep -P "\.jpg\|\.png\|\.gif"')
+      local covers = self.pread('ls "' .. folder .. '" | grep -P "\.jpg\|\.png\|\.gif"', "*all")
+      local covers_table = self.split(covers)
+      
       dbg('wtf', 'ls "' .. folder .. '" | grep "\.jpg\|\.png\|\.gif"')
-      local covers = {}
-      for l in covers_bus:lines() do
-         dbg('here')
-         table.insert(covers, l)
-      end
-      dbg('first', covers[1])
+      dbg('first', covers)
 
-      if table.getn(covers) > 0 then
-         result = folder .. covers[1]
-         for i = 2, table.getn(covers) do
+      if covers_table.n > 0 then
+         result = folder .. covers_table[1]
+         if covers_table.n > 1 then
             -- Searching for front cover with grep because Lua regular
             -- expressions suck:[
             local front_cover = 
-               io.popen('echo "' .. covers[i] .. 
-                        '" | grep -i "cover\|front\|folder\|albumart" | head -n 1')
+               self.pread('echo "' .. covers .. 
+                          '" | grep -i "cover\|front\|folder\|albumart" | head -n 1', "*line")
             if front_cover then
                result = folder .. front_cover
-               break
             end
          end
       end
