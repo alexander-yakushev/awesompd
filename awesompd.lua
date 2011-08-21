@@ -42,9 +42,9 @@ awesompd.ESCAPE_SYMBOL_MAPPING["&"] = "&amp;"
 awesompd.ESCAPE_MENU_SYMBOL_MAPPING = {}
 awesompd.ESCAPE_MENU_SYMBOL_MAPPING["&"] = "'n'"
 
--- Icons
+-- /// Helper functions ///
 
--- Helper function for loading icons.  Checks if an icon exists, and
+-- Function for loading icons.  Checks if an icon exists, and
 -- if it does, returns the path to icon, nil otherwise.
 function awesompd.try_load(file)
    if awful.util.file_readable(file) then
@@ -63,6 +63,41 @@ function awesompd.pread(com, mode)
    end
    return result
 end
+
+-- Slightly modified function awful.util.table.join.
+function awesompd.ajoin(buttons)
+    local result = {}
+    for i = 1, table.getn(buttons) do
+        if buttons[i] then
+            for k, v in pairs(buttons[i]) do
+                if type(k) == "number" then
+                    table.insert(result, v)
+                else
+                    result[k] = v
+                end
+            end
+        end
+    end
+    return result
+ end
+
+-- Splits a given string with linebreaks into an array.
+function awesompd.split(s)
+   local l = { n = 0 }
+   if s == "" then
+      return l
+   end
+   s = s .. "\n"
+   local f = function (s) 
+                l.n = l.n + 1
+		l[l.n] = s
+	     end
+   local p = "%s*(.-)%s*\n%s*"
+   s = string.gsub(s,p,f)
+   return l
+end
+
+-- Icons
 
 function awesompd.load_icons(path)
    awesompd.ICONS = {}
@@ -150,23 +185,6 @@ function awesompd:run()
    self.update_track_timer:start()
 end
 
--- Slightly modified function awful.util.table.join.
-function awesompd.ajoin(buttons)
-    local result = {}
-    for i = 1, table.getn(buttons) do
-        if buttons[i] then
-            for k, v in pairs(buttons[i]) do
-                if type(k) == "number" then
-                    table.insert(result, v)
-                else
-                    result[k] = v
-                end
-            end
-        end
-    end
-    return result
- end
-
 -- Function that registers buttons on the widget.
 function awesompd:register_buttons(buttons)
    widget_buttons = {}
@@ -202,7 +220,7 @@ function awesompd:command_read(com, mode)
    return result
 end
 
-function awesompd:command_toggle()
+function awesompd:command_playpause()
    return function()
              self:command("toggle",self.update_track)
           end
@@ -221,15 +239,15 @@ function awesompd:command_prev_track()
           end
 end
 
-function awesompd:command_play_specific(n)
-   return function()
-             self:command("play " .. n,self.update_track)
-          end
-end
-
 function awesompd:command_stop()
    return function()
              self:command("stop",self.update_track)
+          end
+end
+
+function awesompd:command_play_specific(n)
+   return function()
+             self:command("play " .. n,self.update_track)
           end
 end
 
@@ -244,34 +262,6 @@ function awesompd:command_volume_down()
    return function()
              self:command("volume -5",self.update_track)
              self:notify_state(self.NOTIFY_VOLUME)
-          end
-end
-
-function awesompd:command_random_toggle()
-   return function()
-             self:command("random",self.update_track)
-             self:notify_state(self.NOTIFY_RANDOM)
-          end
-end
-
-function awesompd:command_repeat_toggle()
-   return function()
-             self:command("repeat",self.update_track)
-             self:notify_state(self.NOTIFY_REPEAT)
-          end
-end
-
-function awesompd:command_single_toggle()
-   return function()
-             self:command("single",self.update_track)
-             self:notify_state(self.NOTIFY_SINGLE)
-          end
-end
-
-function awesompd:command_consume_toggle()
-   return function()
-             self:command("consume",self.update_track)
-             self:notify_state(self.NOTIFY_CONSUME)
           end
 end
 
@@ -291,86 +281,54 @@ function awesompd:command_replace_playlist(name)
           end
 end
 
-function awesompd:command_jamendo_search_by(what)
-   return function()
-             local callback = 
-                function(s)
-                   local result = jamendo.search_by(what, s)
-                   if result then
-                      local track_count = table.getn(result.tracks)
-                      self:add_jamendo_tracks(result.tracks)
-                      self:add_hint(format("%s \"%s\" was found",
-                                           what.display,
-                                           result.search_res.name),
-                                    format("Added %s tracks to the playlist",
-                                           track_count))
-                   else
-                      self:add_hint("Search failed",
-                                    format("%s \"%s\" was not found",
-                                           what.display, s))
-                   end
-                end
-             self:display_inputbox("Search music on Jamendo",
-                                   what.display, callback)
-          end
-end
-
 -- /// End of mpc command functions ///
 
 -- /// Menu generation functions ///
 
-function awesompd:command_show_menu() 
-   return function()
-             self:remove_hint()
-             if self.recreate_menu then 
-                local new_menu = {}
-                if self.main_menu ~= nil then 
-                   self.main_menu:hide() 
-                end 
-                if
-                self.connected then 
-                   self:check_list() 
-                   self:check_playlists()
-                   table.insert(new_menu, { "Playback", self:get_playback_menu() })
-                   table.insert(new_menu, { "Options", self:get_options_menu() })
-                   table.insert(new_menu, { "List", self:get_list_menu() })
-                   table.insert(new_menu, { "Playlists", self:get_playlists_menu() })
-                   table.insert(new_menu, 
-                                { "Jamendo",
-                                  { { "Search by", 
-                                      { { "Nothing (Top 100)", self:add_jamendo_top() },
-                                        { "Artist", self:command_jamendo_search_by(jamendo.SEARCH_ARTIST) },
-                                        { "Album", self:command_jamendo_search_by(jamendo.SEARCH_ALBUM) },
-                                        { "Tag", self:command_jamendo_search_by(jamendo.SEARCH_TAG) }}},
-                                    self:get_jamendo_formats_menu(),
-                                    self:get_jamendo_order_menu() }})
-                end 
-                table.insert(new_menu, { "Servers", self:get_servers_menu() }) 
-                self.main_menu = awful.menu({ items = new_menu, width = 300 }) 
-                self.recreate_menu = false 
-             end 
-             self.main_menu:toggle() 
-          end 
-end
-   
-function awesompd:add_jamendo_top()
+function awesompd:command_show_menu()
    return 
-   function ()
-      local track_table = jamendo.return_track_table()
-      self:add_jamendo_tracks(track_table)
-      self:add_hint("Jamendo Top 100 by " .. 
-                    jamendo.current_request_table.params.order.short_display,
-                 format("Added %s tracks to the playlist",
-                        table.getn(track_table)))
-   end
+   function()
+      self:remove_hint()
+      if self.recreate_menu then 
+         local new_menu = {}
+         if self.main_menu ~= nil then 
+            self.main_menu:hide() 
+         end 
+         if
+         self.connected then 
+            self:check_list() 
+            self:check_playlists()
+            new_menu = { { "Playback", self:menu_playback() },
+                         { "Options", self:menu_options() },
+                         { "List", self:menu_list() },
+                         { "Playlists", self:menu_playlists() },
+                         { "Jamendo",
+                           { { "Search by", 
+                               { { "Nothing (Top 100)", self:menu_jamendo_top() },
+                                 { "Artist", self:menu_jamendo_search_by(jamendo.SEARCH_ARTIST) },
+                                 { "Album", self:menu_jamendo_search_by(jamendo.SEARCH_ALBUM) },
+                                 { "Tag", self:menu_jamendo_search_by(jamendo.SEARCH_TAG) }}},
+                             self:menu_jamendo_format(),
+                             self:menu_jamendo_order() }} }
+         end 
+         table.insert(new_menu, { "Servers", self:menu_servers() }) 
+         self.main_menu = awful.menu({ items = new_menu, width = 300 }) 
+         self.recreate_menu = false 
+      end 
+      self.main_menu:toggle() 
+   end 
 end
 
-function awesompd:add_jamendo_tracks(track_table)
-   for i = 1,table.getn(track_table) do
-      self:command("add " .. track_table[i].stream)
-   end
-   self.recreate_menu = true
-   self.recreate_list = true
+-- Returns an icon for a checkbox menu item if it is checked, nil
+-- otherwise.
+function awesompd:menu_item_toggle(checked)
+   return checked and self.ICONS.CHECK or nil
+end
+
+-- Returns an icon for a radiobox menu item if it is selected, nil
+-- otherwise.
+function awesompd:menu_item_radio(selected)
+   return selected and self.ICONS.RADIO or nil
 end
 
 -- Returns the playback menu. Menu contains of:
@@ -380,7 +338,7 @@ end
 -- Next - if the current track is not the last 
 -- in the list and playback is not stopped
 -- Stop - if the playback is not stopped
-function awesompd:get_playback_menu()
+function awesompd:menu_playback()
    if self.recreate_playback then
       local new_menu = {}
       table.insert(new_menu, { "Play\\Pause", 
@@ -412,7 +370,7 @@ function awesompd:get_playback_menu()
 end
 
 -- Returns the current playlist menu. Menu consists of all elements in the playlist.
-function awesompd:get_list_menu()
+function awesompd:menu_list()
    if self.recreate_list then
       local new_menu = {}
       if self.list_array then
@@ -434,7 +392,7 @@ function awesompd:get_list_menu()
 end
 	     
 -- Returns the playlists menu. Menu consists of all files in the playlist folder.
-function awesompd:get_playlists_menu()
+function awesompd:menu_playlists()
    if self.recreate_playlists then
       local new_menu = {}
       if table.getn(self.playlists_array) > 0 then
@@ -454,14 +412,14 @@ function awesompd:get_playlists_menu()
 end
 
 -- Returns the server menu. Menu consists of all servers specified by user during initialization.
-function awesompd:get_servers_menu()
+function awesompd:menu_servers()
    if self.recreate_servers then
       local new_menu = {}
       for i = 1, table.getn(self.servers) do
 	 table.insert(new_menu, {"Server: " .. self.servers[i].server .. 
 				 ", port: " .. self.servers[i].port,
 			      function() self:change_server(i) end,
-			      i == self.current_server and self.ICONS.RADIO or nil})
+                              self:menu_item_radio(i == self.current_server)})
       end
       self.servers_menu = new_menu
    end
@@ -469,31 +427,63 @@ function awesompd:get_servers_menu()
 end
 
 -- Returns the options menu. Menu works like checkboxes for it's elements.
-function awesompd:get_options_menu()
+function awesompd:menu_options()
    if self.recreate_options then 
-      local new_menu = {}
---      self:update_state()
-      table.insert(new_menu, { "Repeat", self:command_repeat_toggle(), 
-			       self.state_repeat == "on" and self.ICONS.CHECK or nil})
-      table.insert(new_menu, { "Random", self:command_random_toggle(), 
-			       self.state_random == "on" and self.ICONS.CHECK or nil})
-      table.insert(new_menu, { "Single", self:command_single_toggle(), 
-			       self.state_single == "on" and self.ICONS.CHECK or nil})
-      table.insert(new_menu, { "Consume", self:command_consume_toggle(), 
-			       self.state_consume == "on" and self.ICONS.CHECK or nil})
+      local new_menu = { { "Repeat", self:menu_toggle_repeat(), 
+                           self:menu_item_toggle(self.state_repeat == "on")},
+                         { "Random", self:menu_toggle_random(), 
+                           self:menu_item_toggle(self.state_random == "on")},
+                         { "Single", self:menu_toggle_single(), 
+                           self:menu_item_toggle(self.state_single == "on")},
+                         { "Consume", self:menu_toggle_consume(), 
+                           self:menu_item_toggle(self.state_consume == "on")} }
       self.options_menu = new_menu
       self.recreate_options = false      
    end
    return self.options_menu
 end
 
-function awesompd:command_jamendo_set_format(format)
+function awesompd:menu_toggle_random()
    return function()
-             jamendo.current_request_table.params.streamencoding = format
+             self:command("random",self.update_track)
+             self:notify_state(self.NOTIFY_RANDOM)
           end
 end
 
-function awesompd:get_jamendo_formats_menu()
+function awesompd:menu_toggle_repeat()
+   return function()
+             self:command("repeat",self.update_track)
+             self:notify_state(self.NOTIFY_REPEAT)
+          end
+end
+
+function awesompd:menu_toggle_single()
+   return function()
+             self:command("single",self.update_track)
+             self:notify_state(self.NOTIFY_SINGLE)
+          end
+end
+
+function awesompd:menu_toggle_consume()
+   return function()
+             self:command("consume",self.update_track)
+             self:notify_state(self.NOTIFY_CONSUME)
+          end
+end
+
+function awesompd:menu_jamendo_top()
+   return 
+   function ()
+      local track_table = jamendo.return_track_table()
+      self:add_jamendo_tracks(track_table)
+      self:add_hint("Jamendo Top 100 by " .. 
+                    jamendo.current_request_table.params.order.short_display,
+                 format("Added %s tracks to the playlist",
+                        table.getn(track_table)))
+   end
+end
+
+function awesompd:menu_jamendo_format()
    if self.recreate_jamendo_formats then
       local setformat =
          function(format)
@@ -513,7 +503,7 @@ function awesompd:get_jamendo_formats_menu()
       local new_menu = {}
       for _, format in pairs(jamendo.ALL_FORMATS) do
          table.insert(new_menu, { format.display, setformat(format),
-                                  iscurr(format) and self.ICONS.RADIO or nil})
+                                  self:menu_item_radio(iscurr(format))})
       end
       self.recreate_jamendo_formats = false
       self.jamendo_formats_menu = { 
@@ -524,7 +514,7 @@ function awesompd:get_jamendo_formats_menu()
    return self.jamendo_formats_menu
 end
 
-function awesompd:get_jamendo_order_menu()
+function awesompd:menu_jamendo_order()
    if self.recreate_jamendo_order then
       local setorder =
          function(order)
@@ -544,7 +534,7 @@ function awesompd:get_jamendo_order_menu()
       local new_menu = {}
       for _, order in pairs(jamendo.ALL_ORDERS) do
          table.insert(new_menu, { order.display, setorder(order),
-                                  iscurr(order) and self.ICONS.RADIO or nil})
+                                  self:menu_item_radio(iscurr(order))})
       end
       self.recreate_jamendo_order = false
       self.jamendo_order_menu = { 
@@ -553,6 +543,30 @@ function awesompd:get_jamendo_order_menu()
          new_menu }
    end
    return self.jamendo_order_menu
+end
+
+function awesompd:menu_jamendo_search_by(what)
+   return function()
+             local callback = 
+                function(s)
+                   local result = jamendo.search_by(what, s)
+                   if result then
+                      local track_count = table.getn(result.tracks)
+                      self:add_jamendo_tracks(result.tracks)
+                      self:add_hint(format("%s \"%s\" was found",
+                                           what.display,
+                                           result.search_res.name),
+                                    format("Added %s tracks to the playlist",
+                                           track_count))
+                   else
+                      self:add_hint("Search failed",
+                                    format("%s \"%s\" was not found",
+                                           what.display, s))
+                   end
+                end
+             self:display_inputbox("Search music on Jamendo",
+                                   what.display, callback)
+          end
 end
 
 -- Checks if the current playlist has changed after the last check.
@@ -599,7 +613,14 @@ function awesompd:change_server(server_number)
    self.recreate_playlists = true
    self.recreate_servers = true
    self:update_track()
---   self:update_state()
+end
+
+function awesompd:add_jamendo_tracks(track_table)
+   for i = 1,table.getn(track_table) do
+      self:command("add " .. track_table[i].stream)
+   end
+   self.recreate_menu = true
+   self.recreate_list = true
 end
 
 -- /// End of menu generation functions ///
@@ -647,21 +668,6 @@ function awesompd:wrap_output(text)
    return format('<span font="%s">%s%s%s</span>', 
                  self.font, self.ldecorator, 
                  awesompd.protect_string(text), self.rdecorator)
-end
-
-function awesompd.split(s)
-   local l = { n = 0 }
-   if s == "" then
-      return l
-   end
-   s = s .. "\n"
-   local f = function (s) 
-                l.n = l.n + 1
-		l[l.n] = s
-	     end
-   local p = "%s*(.-)%s*\n%s*"
-   s = string.gsub(s,p,f)
-   return l
 end
 
 function awesompd:mpcquery()
@@ -906,7 +912,7 @@ function awesompd:try_get_local_cover()
       local folder = music_folder .. current_file_folder
       
       -- Get all images in the folder
-      local covers = self.pread('ls "' .. folder .. '" | grep -P "\.jpg\|\.png\|\.gif"', "*all")
+      local covers = self.pread('ls "' .. folder .. '" | grep -P "\.jpg\|\.png\|\.gif|\.jpeg"', "*all")
       local covers_table = self.split(covers)
       
       if covers_table.n > 0 then
@@ -924,4 +930,11 @@ function awesompd:try_get_local_cover()
       end
       return result
    end   
+end
+
+-- /// Deprecated, left for some backward compatibility in
+-- configuration ///
+
+function awesompd:command_toggle()
+   self:command_playpause()
 end

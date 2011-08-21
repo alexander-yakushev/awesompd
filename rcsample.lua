@@ -124,7 +124,7 @@ mysystray = widget({ type = "systray" })
   }
 
   -- Set the buttons of the widget
-  musicwidget:register_buttons({ { "", awesompd.MOUSE_LEFT, musicwidget:command_toggle() },
+  musicwidget:register_buttons({ { "", awesompd.MOUSE_LEFT, musicwidget:command_playpause() },
      			       { "Control", awesompd.MOUSE_SCROLL_UP, musicwidget:command_prev_track() },
   			       { "Control", awesompd.MOUSE_SCROLL_DOWN, musicwidget:command_next_track() },
   			       { "", awesompd.MOUSE_SCROLL_UP, musicwidget:command_volume_up() },
