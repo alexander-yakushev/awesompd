@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v1.0.4
+-- @release v1.0.5
 ---------------------------------------------------------------------------
 
 require('utf8')
@@ -281,6 +281,14 @@ function awesompd:command_replace_playlist(name)
           end
 end
 
+function awesompd:command_clear_playlist()
+   return function()
+             self:command("clear", self.update_track)
+             self.recreate_list = true
+          end
+end
+             
+
 -- /// End of mpc command functions ///
 
 -- /// Menu generation functions ///
@@ -345,7 +353,7 @@ function awesompd:menu_playback()
                                self:command_toggle(), 
                                self.ICONS.PLAY_PAUSE })
       if self.connected and self.status ~= "Stopped" then
-         if self.list_array[self.current_number-1] then
+         if self.list_array and self.list_array[self.current_number-1] then
             table.insert(new_menu, 
                          { "Prev: " .. 
                            awesompd.protect_string(jamendo.replace_link(
@@ -353,7 +361,7 @@ function awesompd:menu_playback()
                                                    true),
                         self:command_prev_track(), self.ICONS.PREV })
          end
-         if self.current_number ~= table.getn(self.list_array) then
+         if self.list_array and self.current_number ~= table.getn(self.list_array) then
             table.insert(new_menu, 
                          { "Next: " .. 
                            awesompd.protect_string(jamendo.replace_link(
@@ -362,6 +370,8 @@ function awesompd:menu_playback()
                         self:command_next_track(), self.ICONS.NEXT })
          end
          table.insert(new_menu, { "Stop", self:command_stop(), self.ICONS.STOP })
+         table.insert(new_menu, { "", nil })
+         table.insert(new_menu, { "Clear playlist", self:command_clear_playlist() })
       end
       self.recreate_playback = false
       playback_menu = new_menu
