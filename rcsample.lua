@@ -96,6 +96,10 @@ mysystray = widget({ type = "systray" })
   -- this option on the fly in awesompd itself.
   -- possible formats: awesompd.FORMAT_MP3, awesompd.FORMAT_OGG
   musicwidget.jamendo_format = awesompd.FORMAT_MP3
+  
+  -- Specify the browser you use so awesompd can open links from
+  -- Jamendo in it.
+  musicwidget.browser = "firefox"
 
   -- If true, song notifications for Jamendo tracks and local tracks
   -- will also contain album cover image.

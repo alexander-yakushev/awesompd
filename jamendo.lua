@@ -58,7 +58,7 @@ ALL_ORDERS = { ORDER_RELEVANCE, ORDER_RANDOM, ORDER_RATINGDAILY,
                ORDER_RATINGWEEKLY, ORDER_RATINGTOTAL }
 
 current_request_table = { unit = "track", 
-                          fields = {"id", "artist_name", "name", 
+                          fields = {"id", "artist_url", "artist_name", "name", 
                                     "stream", "album_image" },
                           joins = { "track_album", "album_artist" },
                           params = { streamencoding = FORMAT_MP3, 
@@ -68,6 +68,7 @@ current_request_table = { unit = "track",
 -- Local variables
 local jamendo_list = {}
 local cache_file = awful.util.getdir ("cache").."/jamendo_cache"
+local cache_header = "[version=1.0.6]"
 local album_covers_folder = awful.util.getdir("cache") .. "/jamendo_covers/"
 local default_mp3_stream = nil
 local search_template = { fields = { "id", "name" },
@@ -90,9 +91,21 @@ function get_default_mp3_stream()
    return default_mp3_stream.id
 end
 
--- Returns the track ID from the given link to Jamendo stream.
-function get_id_from_link(link)
+-- Returns the track ID from the given link to Jamendo stream.  MPD
+-- transforms Ogg stream links into normal track names. Good for it
+-- but bad for us! We don't know if the song is streamed from Jamendo
+-- anymore. The best we can do is to look through the whole
+-- jamendo_list and compare it with the given track name. If
+-- scan_for_song_name is not nil, then we will perform this check.
+function get_id_from_link(link, scan_for_song_name)
    local _, _, id = string.find(link,"stream/(%d+)")
+   if not id and scan_for_song_name then
+      for _, track in pairs(jamendo_list) do
+         if track.display_name == link then
+            return track.id
+         end
+      end
+   end
    return id
 end
 
@@ -110,6 +123,22 @@ function get_name_by_link(link)
       return jamendo_list[id].display_name
    else
       return link
+   end
+end
+
+-- Returns the album id for given music stream.
+function get_album_id_by_link(link)
+   local id = get_id_from_link(link, true)
+   if id and jamendo_list[id] then
+      return jamendo_list[id].album_id
+   end
+end
+
+-- Returns the track table for the given music stream.
+function get_track_by_link(link)
+   local id = get_id_from_link(link, true)
+   if id and jamendo_list[id] then
+      return jamendo_list[id]
    end
 end
 
@@ -136,6 +165,8 @@ function return_track_table(request_table)
          -- Some songs don't have Ogg stream, use MP3 instead
          parse_table[i].stream = get_link_by_id(parse_table[i].id)
       end
+      _, _, parse_table[i].artist_link_name = 
+         string.find(parse_table[i].artist_url, "jamendo.com\\/artist\\/(.+)")
       parse_table[i].display_name = 
          parse_table[i].artist_name .. " - " .. parse_table[i].name
       -- Do Jamendo a favor, extract album_id for the track yourself
@@ -303,14 +334,22 @@ function retrieve_cache()
    local bus = io.open(cache_file)
    local track = {}
    if bus then
-      for l in bus:lines() do
-         local _, _, id, album_id, track_name = 
-            string.find(l,"(%d+)-(%d+)-(.+)")
-         track = {}
-         track.id = id
-         track.album_id = album_id
-         track.display_name = track_name
-         jamendo_list[id] = track
+      local header = bus:read("*line")
+      if header == cache_header then 
+         for l in bus:lines() do
+            local _, _, id, artist_link_name, album_id, track_name = 
+               string.find(l,"(%d+)-([^-]+)-(%d+)-(.+)")
+            track = {}
+            track.id = id
+            track.artist_link_name = artist_link_name
+            track.album_id = album_id
+            track.display_name = track_name
+            jamendo_list[id] = track
+         end
+      else 
+         -- We encountered an outdated version of the cache
+         -- file. Let's just remove it.
+         awful.util.spawn("rm -f " .. cache_file)
       end
    end
 end
@@ -319,8 +358,9 @@ end
 -- file.
 function save_cache()
    local bus = io.open(cache_file, "w")
+   bus:write(cache_header .. "\n")
    for id,track in pairs(jamendo_list) do
-      bus:write(string.format("%s-%s-%s\n", id, 
+      bus:write(string.format("%s-%s-%s-%s\n", id, track.artist_link_name,
                               track.album_id, track.display_name))
    end
    bus:flush()
@@ -374,22 +414,9 @@ end
 -- Checks if track_name is actually a link to Jamendo stream. If true
 -- returns the file with album cover for the track.
 function try_get_cover(track_name)
-   if string.find(track_name, "jamendo.com/stream") then
-      return get_album_cover(get_id_from_link(track_name))
-   else
-      -- MPD transforms Ogg stream links into normal track names. Good
-      -- for it but bad for us! We don't know if the song is streamed
-      -- from Jamendo anymore. The best we can do for now is to look
-      -- through the whole jamendo_list and compare it with the given
-      -- track name.
-      for _, track in pairs(jamendo_list) do
-         if track.display_name == track_name then
-            return get_album_cover(track.id)
-         end
-      end
-      -- Seems like it is not a Jamendo stream. And even if it is, we
-      -- still can't do anything.
-      return nil
+   local id = get_id_from_link(track_name, true)
+   if id then 
+      return get_album_cover(id)
    end
 end
 

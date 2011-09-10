@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v1.0.5
+-- @release v1.0.6
 ---------------------------------------------------------------------------
 
 require('utf8')
@@ -137,6 +137,7 @@ function awesompd:create()
    instance.recreate_options = true
    instance.recreate_jamendo_formats = true
    instance.recreate_jamendo_order = true
+   instance.recreate_jamendo_browse = true
    instance.current_number = 0
    instance.menu_shown = false
 
@@ -151,6 +152,7 @@ function awesompd:create()
    instance.rdecorator = " "
    instance.show_album_cover = true
    instance.album_cover_size = 50
+   instance.browser = "firefox"
    
 -- Widget configuration
    instance.widget:add_signal("mouse::enter", function(c)
@@ -287,6 +289,14 @@ function awesompd:command_clear_playlist()
              self.recreate_list = true
           end
 end
+
+function awesompd:command_open_in_browser(link)
+   return function()
+             if self.browser then
+                awful.util.spawn(self.browser .. " '" .. link .. "'")
+             end
+          end
+end
              
 
 -- /// End of mpc command functions ///
@@ -306,18 +316,23 @@ function awesompd:command_show_menu()
          self.connected then 
             self:check_list() 
             self:check_playlists()
+            local jamendo_menu = { { "Search by", 
+                                     { { "Nothing (Top 100)", self:menu_jamendo_top() },
+                                       { "Artist", self:menu_jamendo_search_by(jamendo.SEARCH_ARTIST) },
+                                       { "Album", self:menu_jamendo_search_by(jamendo.SEARCH_ALBUM) },
+                                       { "Tag", self:menu_jamendo_search_by(jamendo.SEARCH_TAG) }}} }
+            local browse_menu = self:menu_jamendo_browse()
+            if browse_menu then 
+               table.insert(jamendo_menu, browse_menu)
+            end
+            table.insert(jamendo_menu, self:menu_jamendo_format())
+            table.insert(jamendo_menu, self:menu_jamendo_order())
+
             new_menu = { { "Playback", self:menu_playback() },
                          { "Options", self:menu_options() },
                          { "List", self:menu_list() },
                          { "Playlists", self:menu_playlists() },
-                         { "Jamendo",
-                           { { "Search by", 
-                               { { "Nothing (Top 100)", self:menu_jamendo_top() },
-                                 { "Artist", self:menu_jamendo_search_by(jamendo.SEARCH_ARTIST) },
-                                 { "Album", self:menu_jamendo_search_by(jamendo.SEARCH_ALBUM) },
-                                 { "Tag", self:menu_jamendo_search_by(jamendo.SEARCH_TAG) }}},
-                             self:menu_jamendo_format(),
-                             self:menu_jamendo_order() }} }
+                         { "Jamendo", jamendo_menu } }
          end 
          table.insert(new_menu, { "Servers", self:menu_servers() }) 
          self.main_menu = awful.menu({ items = new_menu, width = 300 }) 
@@ -384,16 +399,16 @@ function awesompd:menu_list()
    if self.recreate_list then
       local new_menu = {}
       if self.list_array then
-	 local total_count = table.getn(self.list_array) 
-	 local start_num = (self.current_number - 15 > 0) and self.current_number - 15 or 1
-	 local end_num = (self.current_number + 15 < total_count ) and self.current_number + 15 or total_count
-	 for i = start_num, end_num do
+         local total_count = table.getn(self.list_array) 
+         local start_num = (self.current_number - 15 > 0) and self.current_number - 15 or 1
+         local end_num = (self.current_number + 15 < total_count ) and self.current_number + 15 or total_count
+         for i = start_num, end_num do
             table.insert(new_menu, { jamendo.replace_link(self.list_array[i]),
                                      self:command_play_specific(i),
                                      self.current_number == i and 
                                         (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
                                      or nil} )
-	 end
+         end
       end
       self.recreate_list = false
       self.list_menu = new_menu
@@ -522,6 +537,27 @@ function awesompd:menu_jamendo_format()
          new_menu }
    end
    return self.jamendo_formats_menu
+end
+
+function awesompd:menu_jamendo_browse()
+   if self.recreate_jamendo_browse and self.browser then
+      local track = jamendo.get_track_by_link(self.unique_text)
+      local new_menu
+      if track then
+         local artist_link = 
+            "http://www.jamendo.com/artist/" .. track.artist_link_name
+         local album_link =
+            "http://www.jamendo.com/album/" .. track.album_id
+         new_menu = { { "Artist's page" , 
+                        self:command_open_in_browser(artist_link) },
+                      { "Album's page" ,
+                        self:command_open_in_browser(album_link) } }
+         self.jamendo_browse_menu = { "Browse on Jamendo", new_menu }
+      else
+         self.jamendo_browse_menu = nil
+      end
+   end
+   return self.jamendo_browse_menu
 end
 
 function awesompd:menu_jamendo_order()
@@ -946,5 +982,5 @@ end
 -- configuration ///
 
 function awesompd:command_toggle()
-   self:command_playpause()
+   return self:command_playpause()
 end
