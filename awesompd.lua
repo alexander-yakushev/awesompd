@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v1.0.6
+-- @release v1.0.7
 ---------------------------------------------------------------------------
 
 require('utf8')

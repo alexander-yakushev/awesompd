@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2011 Alexander Yakushev
--- @release v1.0.4
+-- @release v1.0.7
 ---------------------------------------------------------------------------
 
 module('jamendo', package.seeall)
@@ -68,7 +68,7 @@ current_request_table = { unit = "track",
 -- Local variables
 local jamendo_list = {}
 local cache_file = awful.util.getdir ("cache").."/jamendo_cache"
-local cache_header = "[version=1.0.6]"
+local cache_header = "[version=1.0.7]"
 local album_covers_folder = awful.util.getdir("cache") .. "/jamendo_covers/"
 local default_mp3_stream = nil
 local search_template = { fields = { "id", "name" },
@@ -341,7 +341,7 @@ function retrieve_cache()
                string.find(l,"(%d+)-([^-]+)-(%d+)-(.+)")
             track = {}
             track.id = id
-            track.artist_link_name = artist_link_name
+            track.artist_link_name = string.gsub(artist_link_name, '\\_', '-')
             track.album_id = album_id
             track.display_name = track_name
             jamendo_list[id] = track
@@ -360,7 +360,8 @@ function save_cache()
    local bus = io.open(cache_file, "w")
    bus:write(cache_header .. "\n")
    for id,track in pairs(jamendo_list) do
-      bus:write(string.format("%s-%s-%s-%s\n", id, track.artist_link_name,
+      bus:write(string.format("%s-%s-%s-%s\n", id, 
+                              string.gsub(track.artist_link_name, '-', '\\_'),
                               track.album_id, track.display_name))
    end
    bus:flush()
