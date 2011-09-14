@@ -81,7 +81,7 @@ mysystray = widget({ type = "systray" })
 
 -- BEGIN OF AWESOMPD WIDGET DECLARATION
 
-  require('awesompd')
+  require('awesompd/awesompd')
 
   musicwidget = awesompd:create() -- Create awesompd widget
   musicwidget.font = "Liberation Mono" -- Set widget font 

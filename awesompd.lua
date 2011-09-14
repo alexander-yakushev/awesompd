@@ -4,8 +4,8 @@
 -- @release v1.0.7
 ---------------------------------------------------------------------------
 
-require('utf8')
-require('jamendo')
+require('awesompd/utf8')
+require('awesompd/jamendo')
 local beautiful = require('beautiful')
 local naughty = naughty
 local awful = awful
