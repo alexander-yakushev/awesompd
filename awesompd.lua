@@ -4,8 +4,28 @@
 -- @release v1.0.7
 ---------------------------------------------------------------------------
 
-require('awesompd/utf8')
-require('awesompd/jamendo')
+awesompd = {}
+
+-- Function for checking icons and modules. Checks if a file exists,
+-- and if it does, returns the path to file, nil otherwise.
+function awesompd.try_load(file)
+   if awful.util.file_readable(file) then
+      return file
+   end
+end
+
+-- Function for loading modules.
+function awesompd.try_require(module)
+   if awesompd.try_load(awful.util.getdir("config") .. 
+                     "/awesompd/" .. module .. ".lua") then
+      return require('awesompd/' .. module)
+   else
+      return require(module)
+   end
+end
+
+awesompd.try_require("utf8")
+awesompd.try_require("jamendo")
 local beautiful = require('beautiful')
 local naughty = naughty
 local awful = awful
@@ -19,8 +39,6 @@ local function dbg (...)
       print(...)
    end
 end
-
-awesompd = {}
 
 -- Constants
 awesompd.MOUSE_LEFT = 1
@@ -43,14 +61,6 @@ awesompd.ESCAPE_MENU_SYMBOL_MAPPING = {}
 awesompd.ESCAPE_MENU_SYMBOL_MAPPING["&"] = "'n'"
 
 -- /// Helper functions ///
-
--- Function for loading icons.  Checks if an icon exists, and
--- if it does, returns the path to icon, nil otherwise.
-function awesompd.try_load(file)
-   if awful.util.file_readable(file) then
-      return file
-   end
-end
 
 -- Just like awful.util.pread, but takes an argument how to read like
 -- "*line" or "*all".
