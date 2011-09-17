@@ -166,7 +166,7 @@ function return_track_table(request_table)
          parse_table[i].stream = get_link_by_id(parse_table[i].id)
       end
       _, _, parse_table[i].artist_link_name = 
-         string.find(parse_table[i].artist_url, "jamendo.com\\/artist\\/(.+)")
+         string.find(parse_table[i].artist_url, "\\/artist\\/(.+)")
       parse_table[i].display_name = 
          parse_table[i].artist_name .. " - " .. parse_table[i].name
       -- Do Jamendo a favor, extract album_id for the track yourself
@@ -187,26 +187,25 @@ end
 -- current_request_table.
 function form_request(request_table)
    local curl_str = "curl -A 'Mozilla/4.0' -fsm 5 \"%s\""
-   local url = "http://api.jamendo.com/get2/%s/%s/json/%s/?%s"
+   local url = "http://api.jamendo.com/en/?m=get2%s%s"
    request_table = request_table or current_request_table
    
    local fields = request_table.fields or current_request_table.fields
-   -- Form field string (like field1+field2+fieldN)
-   local field_string = ""
-   for i = 1, table.getn(fields) do
-      field_string = field_string .. fields[i] .. "+"
-   end
-   field_string = string.sub(field_string,1,string.len(field_string)-1)
-
-   local unit = request_table.unit or current_request_table.unit
-
    local joins = request_table.joins or current_request_table.joins
-   local join_string = ""
-   -- Form join string (like table1+table2+tableN)
-   for i = 1, table.getn(joins) do
-      join_string = join_string .. joins[i] .. "+"
+   local unit = request_table.unit or current_request_table.unit
+   
+   -- Form field&joins string (like field1+field2+fieldN%2Fjoin+)
+   local fnj_string = "&m_params="
+   for i = 1, table.getn(fields) do
+      fnj_string = fnj_string .. fields[i] .. "+"
    end
-   join_string = string.sub(join_string,1,string.len(join_string)-1)
+   fnj_string = string.sub(fnj_string,1,string.len(fnj_string)-1)
+   
+   fnj_string = fnj_string .. "%2F" .. unit .. "%2Fjson%2F"
+   for i = 1, table.getn(joins) do
+      fnj_string = fnj_string .. joins[i] .. "+"
+   end
+   fnj_string = fnj_string .. "%2F"
    
    local params = {}
    -- If parameters where supplied in request_table, add them to the
@@ -231,12 +230,10 @@ function form_request(request_table)
          v = v.value
       end
       v = string.gsub(v, " ", "+")
-      param_string = param_string .. k .. "=" .. v .. "&"
+      param_string = param_string .. "&" .. k .. "=" .. v
    end
-   param_string = string.sub(param_string,1,string.len(param_string)-1)
 
-   return string.format(curl_str, string.format(url, field_string, unit, 
-                                                join_string, param_string))
+   return string.format(curl_str, string.format(url, fnj_string, param_string))
 end
 
 -- Primitive function for parsing Jamendo API JSON response.  Does not
