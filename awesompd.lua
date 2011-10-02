@@ -40,6 +40,18 @@ local function dbg (...)
    end
 end
 
+local function tbl_pr(tbl,shift)
+   if enable_dbg then
+      local shift = shift or ""
+      for k, v in pairs(tbl) do
+         print(shift .. k .. ": " .. tostring(v))
+         if type(v) == "table" then
+            tbl_pr(v, shift .. "  ")
+         end
+      end
+   end
+end
+      
 -- Constants
 awesompd.MOUSE_LEFT = 1
 awesompd.MOUSE_MIDDLE = 2
@@ -160,6 +172,7 @@ function awesompd:create()
    instance.path_to_icons = ""
    instance.ldecorator = " "
    instance.rdecorator = " "
+   instance.jamendo_format = awesompd.FORMAT_MP3
    instance.show_album_cover = true
    instance.album_cover_size = 50
    instance.browser = "firefox"
