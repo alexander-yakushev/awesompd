@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v1.0.7
+-- @release v1.0.8
 ---------------------------------------------------------------------------
 
 awesompd = {}
@@ -278,14 +278,16 @@ end
 
 function awesompd:command_volume_up()
    return function()
-             self:command("volume +5",self.update_track)
+             self:command("volume +5")
+             self:update_track() -- Nasty! I should replace it with proper callback later.
              self:notify_state(self.NOTIFY_VOLUME)
           end
 end
 
 function awesompd:command_volume_down()
    return function()
-             self:command("volume -5",self.update_track)
+             self:command("volume -5")
+             self:update_track()
              self:notify_state(self.NOTIFY_VOLUME)
           end
 end
