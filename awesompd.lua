@@ -981,7 +981,7 @@ function awesompd:try_get_local_cover()
       local folder = music_folder .. current_file_folder
       
       -- Get all images in the folder
-      local covers = self.pread('ls "' .. folder .. '" | grep -P "\.jpg\|\.png\|\.gif|\.jpeg"', "*all")
+      local covers = self.pread("ls '" .. folder .. "' | grep -P '\.jpg\|\.png\|\.gif|\.jpeg'", "*all")
       local covers_table = self.split(covers)
       
       if covers_table.n > 0 then
