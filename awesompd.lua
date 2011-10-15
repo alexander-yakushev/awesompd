@@ -958,7 +958,6 @@ end
 -- folders. If there is no cover art either returns the default album
 -- cover.
 function awesompd:get_cover(track)
-   dbg(self.ICONS.DEFAULT_ALBUM_COVER)
    return jamendo.try_get_cover(track) or 
    self:try_get_local_cover() or self.ICONS.DEFAULT_ALBUM_COVER
 end
@@ -973,6 +972,13 @@ function awesompd:try_get_local_cover()
          self.pread('cat ' .. self.mpd_config .. ' | grep -v "#" | grep music_directory', "*line"),
          'music_directory%s+"(.+)"')
       music_folder = music_folder .. "/"
+      
+      -- If the music_folder is specified with ~ at the beginning,
+      -- replace it with user home directory
+      if string.sub(music_folder, 1, 1) == "~" then
+         local user_folder = self.pread("echo ~", "*line")
+         music_folder = user_folder .. string.sub(music_folder, 2)
+      end
 
       -- Get the path to the file currently playing.
       local _, _, current_file_folder = 
