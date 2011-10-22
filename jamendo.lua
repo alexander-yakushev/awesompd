@@ -307,20 +307,44 @@ end
 -- Jamendo returns Unicode symbols as \uXXXX. Lua does not transform
 -- them into symbols so we need to do it ourselves.
 function utf8_codes_to_symbols (s)
+--   print(utf8_codes_to_symbols, s)
    local hexnums = "[%dabcdefABCDEF]"
-   local pattern = string.format("\\u(%s%s%s%s?)", 
-                                 hexnums, hexnums, hexnums, hexnums)
+   local pattern = string.format("\\u(%s%s%s%s?%s?)", 
+                                 hexnums, hexnums, hexnums, hexnums, hexnums)
    local decode = function(code)
+                     print("Look at me! I parse " .. code)
                      code = tonumber(code, 16)
-                     -- Grab high and low byte
-                     local hi = math.floor(code / 256) * 4 + 192
-                     local lo = math.mod(code, 256)
-                     -- Reduce low byte to 64, add overflow to high
-                     local oflow = math.floor(lo / 64)
-                     hi = hi + oflow
-                     lo = math.mod(code, 64) + 128
-                     -- Return symbol as \hi\lo
-                     return string.char(hi, lo)
+                     if code < 128 then -- one-byte symbol
+                        return string.char(code)
+                     elseif code < 2048 then -- two-byte symbol
+                        -- Grab high and low bytes
+                        local hi = math.floor(code / 64)
+                        local lo = math.mod(code, 64)
+                        -- Return symbol as \hi\lo
+                        return string.char(hi + 192, lo + 128)
+                     elseif code < 65536 then
+                        -- Grab high, middle and low bytes
+                        local hi = math.floor(code / 4096)
+                        local leftover = code - hi * 4096
+                        local mi = math.floor(leftover / 64)
+                        leftover = leftover - mi * 64
+                        local lo = math.mod(leftover, 64)
+                        -- Return symbol as \hi\mi\lo
+                        return string.char(hi + 224, mi + 160, lo + 128)
+                     elseif code < 1114112 then
+                        print("I am actually here")
+                        -- Grab high, highmiddle, lowmiddle and low bytes
+                        local hi = math.floor(code / 262144)
+                        local leftover = code - hi * 262144
+                        local hm = math.floor(leftover / 4096)
+                        leftover = leftover - hm * 4096
+                        local lm = math.floor(leftover / 64)
+                        local lo = math.mod(leftover, 64)
+                        -- Return symbol as \hi\hm\lm\lo
+                        return string.char(hi + 240, hm + 128, lm + 128, lo + 128)
+                     else -- It is not Unicode symbol at all
+                        return tostring(code)
+                     end
                   end
    return string.gsub(s, pattern, decode)
 end

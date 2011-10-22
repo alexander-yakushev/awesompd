@@ -30,6 +30,7 @@ local beautiful = require('beautiful')
 local naughty = naughty
 local awful = awful
 local format = string.format
+local keygrabber = keygrabber
 
 -- Debug stuff
 
@@ -921,8 +922,10 @@ end
 -- Use it like this:
 -- self:display_inputbox("Search music on Jamendo", "Artist", print)
 function awesompd:display_inputbox(title_text, prompt_text, hook)
-   if self.inputbox then -- Inputbox already exists, do nothing
-      return
+   if self.inputbox then -- Inputbox already exists, replace it
+      keygrabber.stop()
+      self.inputbox.screen = nil
+      self.inputbox = nil
    end
    local width = 200
    local height = 30
