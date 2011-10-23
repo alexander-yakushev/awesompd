@@ -307,12 +307,10 @@ end
 -- Jamendo returns Unicode symbols as \uXXXX. Lua does not transform
 -- them into symbols so we need to do it ourselves.
 function utf8_codes_to_symbols (s)
---   print(utf8_codes_to_symbols, s)
    local hexnums = "[%dabcdefABCDEF]"
    local pattern = string.format("\\u(%s%s%s%s?%s?)", 
                                  hexnums, hexnums, hexnums, hexnums, hexnums)
    local decode = function(code)
-                     print("Look at me! I parse " .. code)
                      code = tonumber(code, 16)
                      if code < 128 then -- one-byte symbol
                         return string.char(code)
