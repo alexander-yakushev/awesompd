@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v1.0.8
+-- @release v1.0.9
 ---------------------------------------------------------------------------
 
 awesompd = {}
@@ -991,8 +991,12 @@ function awesompd:try_get_local_cover()
 
       local folder = music_folder .. current_file_folder
       
-      -- Get all images in the folder
-      local covers = self.pread("ls '" .. folder .. "' | grep -P '\.jpg\|\.png\|\.gif|\.jpeg'", "*all")
+      -- Get all images in the folder. Also escape occasional single
+      -- quotes in folder name.
+      local request = format("ls '%s' | grep -P '\.jpg\|\.png\|\.gif|\.jpeg'",
+                             string.gsub(folder, "'", "'\\''"))
+
+      local covers = self.pread(request, "*all")
       local covers_table = self.split(covers)
       
       if covers_table.n > 0 then
