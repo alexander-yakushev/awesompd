@@ -387,6 +387,7 @@ end
 -- Next - if the current track is not the last 
 -- in the list and playback is not stopped
 -- Stop - if the playback is not stopped
+-- Clear playlist - always
 function awesompd:menu_playback()
    if self.recreate_playback then
       local new_menu = {}
@@ -412,8 +413,8 @@ function awesompd:menu_playback()
          end
          table.insert(new_menu, { "Stop", self:command_stop(), self.ICONS.STOP })
          table.insert(new_menu, { "", nil })
-         table.insert(new_menu, { "Clear playlist", self:command_clear_playlist() })
       end
+      table.insert(new_menu, { "Clear playlist", self:command_clear_playlist() })
       self.recreate_playback = false
       playback_menu = new_menu
    end
