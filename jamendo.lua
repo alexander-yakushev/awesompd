@@ -4,10 +4,17 @@
 -- @release v1.0.9
 ---------------------------------------------------------------------------
 
-module('jamendo', package.seeall)
-
 -- Grab environment
 local os = os
+local awful = awful
+local string = string
+local table = table
+local io = io
+local pairs = pairs
+local type = type
+local assert = assert
+
+module('jamendo')
 
 -- UTILITY STUFF
 -- Checks whether file specified by filename exists.
