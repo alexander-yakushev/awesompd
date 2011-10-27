@@ -85,61 +85,40 @@ local search_template = { fields = { "id", "name" },
 
 -- Returns default stream number for MP3 format. Requests API for it
 -- not more often than every hour.
-function get_default_mp3_stream()
+local function get_default_mp3_stream()
    if not default_mp3_stream or 
       (os.time() - default_mp3_stream.last_checked) > 3600 then
       local trygetlink = 
          perform_request("echo $(curl -w %{redirect_url} " .. 
                          "'http://api.jamendo.com/get2/stream/track/redirect/" .. 
                          "?streamencoding="..FORMAT_MP3.value.."&id=729304')")
-      local _, _, prefix = string.find(trygetlink,"stream(%d+)\.jamendo\.com")
-      default_mp3_stream = { id = prefix, last_checked = os.time() }
+         local _, _, prefix = string.find(trygetlink,"stream(%d+)\.jamendo\.com")
+         default_mp3_stream = { id = prefix, last_checked = os.time() }
    end
    return default_mp3_stream.id
 end
 
--- Returns the track ID from the given link to Jamendo stream.  MPD
--- transforms Ogg stream links into normal track names. Good for it
--- but bad for us! We don't know if the song is streamed from Jamendo
--- anymore. The best we can do is to look through the whole
--- jamendo_list and compare it with the given track name. If
--- scan_for_song_name is not nil, then we will perform this check.
-function get_id_from_link(link, scan_for_song_name)
-   local _, _, id = string.find(link,"stream/(%d+)")
-   if not id and scan_for_song_name then
-      for _, track in pairs(jamendo_list) do
-         if track.display_name == link then
-            return track.id
-         end
-      end
-   end
+-- Returns the track ID from the given link to Jamendo stream. If the
+-- given text is not the Jamendo stream returns nil.
+function get_id_from_link(link)
+   local _, _, id = string.find(link,"jamendo.com/stream/(%d+)")
    return id
 end
 
 -- Returns link to music stream for the given track ID. Uses MP3
 -- format and the default stream for it.
-function get_link_by_id(id)
+local function get_link_by_id(id)
    return string.format("http://stream%s.jamendo.com/stream/%s/mp31/", 
                         get_default_mp3_stream(), id)
 end
 
--- Returns track name for given music stream.
-function get_name_by_link(link)
-   local id = get_id_from_link(link)
-   if jamendo_list[id] then
-      return jamendo_list[id].display_name
-   else
-      return link
-   end
-end
-
--- Returns the album id for given music stream.
-function get_album_id_by_link(link)
-   local id = get_id_from_link(link, true)
-   if id and jamendo_list[id] then
-      return jamendo_list[id].album_id
-   end
-end
+-- -- Returns the album id for given music stream.
+-- function get_album_id_by_link(link)
+--    local id = get_id_from_link(link, true)
+--    if id and jamendo_list[id] then
+--       return jamendo_list[id].album_id
+--    end
+-- end
 
 -- Returns the track table for the given music stream.
 function get_track_by_link(link)
@@ -151,14 +130,13 @@ end
 
 -- If a track is actually a Jamendo stream, replace it with normal
 -- track name.
-function replace_link(track)
-   if string.find(track,"jamendo.com/stream") then
-      local track_name = get_name_by_link(track)
-      if track_name then
-         return track_name
-      end
+function replace_link(track_name)
+   local track = get_track_by_link(track_name)
+   if track then
+      return track.display_name
+   else
+      return track_name
    end
-   return track
 end
 
 -- Returns table of track IDs, names and other things based on the
@@ -192,6 +170,7 @@ end
 -- table. If request_table is nil, uses current_request_table instead.
 -- For all values that do not exist in request_table use ones from
 -- current_request_table.
+-- return - HTTP-request
 function form_request(request_table)
    local curl_str = "curl -A 'Mozilla/4.0' -fsm 5 \"%s\""
    local url = "http://api.jamendo.com/en/?m=get2%s%s"
@@ -313,7 +292,7 @@ end
 
 -- Jamendo returns Unicode symbols as \uXXXX. Lua does not transform
 -- them into symbols so we need to do it ourselves.
-function utf8_codes_to_symbols (s)
+local function utf8_codes_to_symbols (s)
    local hexnums = "[%dabcdefABCDEF]"
    local pattern = string.format("\\u(%s%s%s%s?%s?)", 
                                  hexnums, hexnums, hexnums, hexnums, hexnums)
@@ -337,7 +316,6 @@ function utf8_codes_to_symbols (s)
                         -- Return symbol as \hi\mi\lo
                         return string.char(hi + 224, mi + 160, lo + 128)
                      elseif code < 1114112 then
-                        print("I am actually here")
                         -- Grab high, highmiddle, lowmiddle and low bytes
                         local hi = math.floor(code / 262144)
                         local leftover = code - hi * 262144
@@ -356,7 +334,7 @@ end
 
 -- Retrieves mapping of track IDs to track names and album IDs to
 -- avoid redundant queries when Awesome gets restarted.
-function retrieve_cache()
+local function retrieve_cache()
    local bus = io.open(cache_file)
    local track = {}
    if bus then
@@ -382,7 +360,7 @@ end
 
 -- Saves track IDs to track names and album IDs mapping into the cache
 -- file.
-function save_cache()
+local function save_cache()
    local bus = io.open(cache_file, "w")
    bus:write(cache_header .. "\n")
    for id,track in pairs(jamendo_list) do
