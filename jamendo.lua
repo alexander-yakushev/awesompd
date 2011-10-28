@@ -13,6 +13,9 @@ local io = io
 local pairs = pairs
 local type = type
 local assert = assert
+local print = print
+local tonumber = tonumber
+local math = math
 
 module('jamendo')
 
@@ -292,7 +295,7 @@ end
 
 -- Jamendo returns Unicode symbols as \uXXXX. Lua does not transform
 -- them into symbols so we need to do it ourselves.
-local function utf8_codes_to_symbols (s)
+function utf8_codes_to_symbols (s)
    local hexnums = "[%dabcdefABCDEF]"
    local pattern = string.format("\\u(%s%s%s%s?%s?)", 
                                  hexnums, hexnums, hexnums, hexnums, hexnums)
@@ -360,7 +363,7 @@ end
 
 -- Saves track IDs to track names and album IDs mapping into the cache
 -- file.
-local function save_cache()
+function save_cache()
    local bus = io.open(cache_file, "w")
    bus:write(cache_header .. "\n")
    for id,track in pairs(jamendo_list) do
@@ -456,12 +459,12 @@ function perform_request(reqest_string)
    bus:close()
    -- Curl with popen can sometimes fail to fetch data when the
    -- connection is slow. Let's try again if it fails.
-   if (string.len(response) == 0) then
+   if string.len(response) == 0 then
       bus = assert(io.popen(reqest_string,'r'))
       response = bus:read("*all")
       bus:close()
       -- If it still can't read anything, return nil
-      if (string.len(response) ~= 0) then
+      if string.len(response) ~= 0 then 
          return nil
       end
    end

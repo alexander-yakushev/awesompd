@@ -54,11 +54,17 @@ local function tbl_pr(tbl,shift)
 end
       
 -- Constants
+awesompd.PLAYING = "Playing"
+awesompd.PAUSED = "Paused"
+awesompd.STOPPED = "MPD stopped"
+awesompd.DISCONNECTED = "Disconnected"
+
 awesompd.MOUSE_LEFT = 1
 awesompd.MOUSE_MIDDLE = 2
 awesompd.MOUSE_RIGHT = 3
 awesompd.MOUSE_SCROLL_UP = 4
 awesompd.MOUSE_SCROLL_DOWN = 5
+
 awesompd.NOTIFY_VOLUME = 1
 awesompd.NOTIFY_REPEAT = 2
 awesompd.NOTIFY_RANDOM = 3
@@ -72,6 +78,31 @@ awesompd.ESCAPE_SYMBOL_MAPPING["&"] = "&amp;"
 -- own mapping.
 awesompd.ESCAPE_MENU_SYMBOL_MAPPING = {}
 awesompd.ESCAPE_MENU_SYMBOL_MAPPING["&"] = "'n'"
+
+-- /// Current track variables and functions /// 
+
+-- Returns a string for the given track to be displayed in the widget
+-- and notification.
+function awesompd.get_display_name(track)
+   if track.display_name then
+      return track.display_name
+   elseif track.artist_name and track.track_name then
+      return track.artist_name .. " - " .. track.name
+   end
+end
+
+-- Returns a track display name, album name (if exists) and album
+-- release year (if exists).
+function awesompd.get_extended_info(track)
+   local result = awesompd.get_display_name(track)
+   if track.album_name then
+      result = result .. "\n" .. track.album_name
+   end
+   if track.year then
+      result = result .. "\n" .. track.year
+   end
+   return result
+end
 
 -- /// Helper functions ///
 
@@ -147,12 +178,9 @@ function awesompd:create()
    instance.notification = nil
    instance.scroll_pos = 1
    instance.text = ""
-   instance.status = "Stopped"
-   instance.status_text = "Stopped"
    instance.to_notify = false
-   instance.connected = true
    instance.album_cover = nil
-
+   instance.current_track = { }
    instance.recreate_menu = true
    instance.recreate_playback = true
    instance.recreate_list = true
@@ -313,6 +341,7 @@ function awesompd:command_clear_playlist()
    return function()
              self:command("clear", self.update_track)
              self.recreate_list = true
+             self.recreate_menu = true
           end
 end
 
@@ -323,7 +352,6 @@ function awesompd:command_open_in_browser(link)
              end
           end
 end
-             
 
 -- /// End of mpc command functions ///
 
@@ -338,8 +366,8 @@ function awesompd:command_show_menu()
          if self.main_menu ~= nil then 
             self.main_menu:hide() 
          end 
-         if
-         self.connected then 
+         if self.status ~= awesompd.DISCONNECTED
+         then 
             self:check_list() 
             self:check_playlists()
             local jamendo_menu = { { "Search by", 
@@ -394,7 +422,7 @@ function awesompd:menu_playback()
       table.insert(new_menu, { "Play\\Pause", 
                                self:command_toggle(), 
                                self.ICONS.PLAY_PAUSE })
-      if self.connected and self.status ~= "Stopped" then
+      if self.status ~= self.STOPPED and self.status ~= self.DISCONNECTED then
          if self.list_array and self.list_array[self.current_number-1] then
             table.insert(new_menu, 
                          { "Prev: " .. 
@@ -433,7 +461,7 @@ function awesompd:menu_list()
             table.insert(new_menu, { jamendo.replace_link(self.list_array[i]),
                                      self:command_play_specific(i),
                                      self.current_number == i and 
-                                        (self.status == "Playing" and self.ICONS.PLAY or self.ICONS.PAUSE)
+                                        (self.status == self.PLAYING and self.ICONS.PLAY or self.ICONS.PAUSE)
                                      or nil} )
          end
       end
@@ -567,8 +595,9 @@ function awesompd:menu_jamendo_format()
 end
 
 function awesompd:menu_jamendo_browse()
-   if self.recreate_jamendo_browse and self.browser then
-      local track = jamendo.get_track_by_link(self.unique_text)
+   if self.recreate_jamendo_browse and self.browser 
+      and self.current_track.unique_name then
+      local track = jamendo.get_track_by_link(self.current_track.unique_name)
       local new_menu
       if track then
          local artist_link = 
@@ -706,7 +735,7 @@ function awesompd:add_hint(hint_title, hint_text, hint_image)
 					, position   = "top_right"
                                         , icon       = hint_image
                                         , icon_size  = self.album_cover_size
-				     })
+                                     })
 end
 
 function awesompd:remove_hint()
@@ -717,8 +746,15 @@ function awesompd:remove_hint()
 end
 
 function awesompd:notify_track()
-   if self.status ~= "Stopped" then
-      self:add_hint(self.status_text, self.text, self.album_cover)
+   if self.status ~= awesompd.STOPPED then
+      local caption = self.status_text
+      local nf_text = self.get_display_name(self.current_track)
+      local al_cover = nil
+      if self.show_album_cover then
+         nf_text = self.get_extended_info(self.current_track)
+         al_cover = self.current_track.album_cover
+      end
+      self:add_hint(caption, nf_text, al_cover)
    end
 end
 
@@ -748,6 +784,7 @@ function awesompd:mpcquery()
       " -p " .. self.servers[self.current_server].port .. " "
 end
 
+-- This function actually sets the text on the widget.
 function awesompd:set_text(text)
    self.widget.text = self:wrap_output(text)
 end
@@ -756,7 +793,7 @@ function awesompd.find_pattern(text, pattern, start)
    return utf8sub(text, string.find(text, pattern, start))
 end
 
--- Scroll the text in the widget
+-- Scroll the given text by the current number of symbols.
 function awesompd:scroll_text(text)
    local result = text
    if self.output_size < utf8len(text) then
@@ -776,11 +813,24 @@ function awesompd:scroll_text(text)
    return result
 end
 
+-- This function is called every second.
 function awesompd:update_widget()
    self:set_text(self:scroll_text(self.text))
    self:check_notify()
 end
 
+-- This function is called by update_track each time when the content
+-- of the widget text must be changed.
+function awesompd:update_widget_text()
+   if self.status == awesompd.DISCONNECTED or 
+      self.status == awesompd.STOPPED then
+      self.text = self.status
+   else
+      self.text = self.get_display_name(self.current_track)
+   end
+end
+
+-- Checks if notification should be shown and shows if positive.
 function awesompd:check_notify()
    if self.to_notify then
       self:notify_track()
@@ -811,57 +861,64 @@ function awesompd:update_track(file)
    end
 
    if not track_line or string.len(track_line) == 0 then
-      self.text = "Disconnected"
-      self.unique_text = self.text
-      if self.connected then
+      if self.status ~= awesompd.DISCONNECTED then
 	 self:notify_disconnect()
-	 self.connected = false
 	 self.recreate_menu = true
+         self.status = awesompd.DISCONNECTED
+         self.current_track = { }
+         self:update_widget_text()
       end
    else
-      if not self.connected then
+      if self.status == awesompd.DISCONNECTED then
 	 self:notify_connect()
-	 self.connected = true
 	 self.recreate_menu = true
+         self:update_widget_text()
       end
       if string.find(track_line,"volume:") then
-	 self.text = "MPD stopped"
-         self.album_cover = nil
-         self.unique_text = self.text
-	 if self.status ~= "Stopped" then
-	    self.status = "Stopped"
+	 if self.status ~= awesompd.STOPPED then
+            self.status = awesompd.STOPPED
 	    self.current_number = 0
 	    self.recreate_menu = true
 	    self.recreate_playback = true
 	    self.recreate_list = true
+            self.album_cover = nil
+            self.current_track = { }
+            self:update_widget_text()
 	 end
          self:update_state(track_line)
       else
          self:update_state(options_line)
-	 local new_track = track_line
-	 if new_track ~= self.unique_text then
-            self.text = jamendo.replace_link(new_track)
-            self.unique_text = new_track
+         local _, _, new_file, new_album = 
+            string.find(self:command_read('current -f "%file%-<>-%album%"', "*line"), "(.+)%-<>%-(.*)")
+	 if new_file ~= self.current_track.unique_name then
+            self.current_track = jamendo.get_track_by_link(new_file)
+            if not self.current_track then
+               self.current_track = { display_name = track_line,
+                                      album_name = new_album }
+            end
+            self.current_track.unique_name = new_file
             if self.show_album_cover then
-               self.album_cover = self:get_cover(new_track)
+               self.current_track.album_cover = self:get_cover(new_file)
             end
 	    self.to_notify = true
 	    self.recreate_menu = true
 	    self.recreate_playback = true
 	    self.recreate_list = true
 	    self.current_number = tonumber(self.find_pattern(status_line,"%d+"))
+            self:update_widget_text()
 	 end
 	 local tmp_pst = string.find(status_line,"%d+%:%d+%/")
-	 local progress = self.find_pattern(status_line,"%#%d+/%d+") .. " " .. string.sub(status_line,tmp_pst)   
-	 newstatus = "Playing"
+	 local progress = self.find_pattern(status_line,"%#%d+/%d+") .. " " .. string.sub(status_line,tmp_pst)
+         local new_status = awesompd.PLAYING
 	 if string.find(status_line,"paused") then
-	    newstatus = "Paused"
+            new_status = awesompd.PAUSED
 	 end
-	 if newstatus ~= self.status then
+	 if new_status ~= self.status then
 	    self.to_notify = true
 	    self.recreate_list = true
+            self.status = new_status
+            self:update_widget_text()
 	 end
-	 self.status = newstatus
 	 self.status_text = self.status .. " " .. progress
       end
    end
