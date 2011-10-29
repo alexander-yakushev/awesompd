@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v1.0.9
+-- @release v1.1.0pre
 ---------------------------------------------------------------------------
 
 awesompd = {}
@@ -555,11 +555,15 @@ function awesompd:menu_jamendo_top()
    return 
    function ()
       local track_table = jamendo.return_track_table()
-      self:add_jamendo_tracks(track_table)
-      self:add_hint("Jamendo Top 100 by " .. 
-                    jamendo.current_request_table.params.order.short_display,
-                 format("Added %s tracks to the playlist",
-                        table.getn(track_table)))
+      if not track_table then
+         self:add_hint("Can't connect to Jamendo server", "Please check your network connection")
+      else
+         self:add_jamendo_tracks(track_table)
+         self:add_hint("Jamendo Top 100 by " .. 
+                       jamendo.current_request_table.params.order.short_display,
+                    format("Added %s tracks to the playlist",
+                           table.getn(track_table)))
+      end
    end
 end
 

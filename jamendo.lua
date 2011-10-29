@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2011 Alexander Yakushev
--- @release v1.0.9
+-- @release v1.1.0pre
 ---------------------------------------------------------------------------
 
 -- Grab environment
@@ -69,7 +69,7 @@ ALL_ORDERS = { ORDER_RELEVANCE, ORDER_RANDOM, ORDER_RATINGDAILY,
 
 current_request_table = { unit = "track", 
                           fields = {"id", "artist_url", "artist_name", "name", 
-                                    "stream", "album_image" },
+                                    "stream", "album_image", "album_name" },
                           joins = { "track_album", "album_artist" },
                           params = { streamencoding = FORMAT_MP3, 
                                      order = ORDER_RATINGWEEKLY,
@@ -78,7 +78,7 @@ current_request_table = { unit = "track",
 -- Local variables
 local jamendo_list = {}
 local cache_file = awful.util.getdir ("cache").."/jamendo_cache"
-local cache_header = "[version=1.0.7]"
+local cache_header = "[version=1.1.0]"
 local album_covers_folder = awful.util.getdir("cache") .. "/jamendo_covers/"
 local default_mp3_stream = nil
 local search_template = { fields = { "id", "name" },
@@ -147,6 +147,9 @@ end
 function return_track_table(request_table)
    local req_string = form_request(request_table)
    local response = perform_request(req_string)
+   if not response then
+      return nil -- Bad internet connection
+   end
    parse_table = parse_json(response)
    for i = 1, table.getn(parse_table) do
       if parse_table[i].stream == "" then
@@ -344,11 +347,12 @@ local function retrieve_cache()
       local header = bus:read("*line")
       if header == cache_header then 
          for l in bus:lines() do
-            local _, _, id, artist_link_name, album_id, track_name = 
-               string.find(l,"(%d+)-([^-]+)-(%d+)-(.+)")
+            local _, _, id, artist_link_name, album_name, album_id, track_name = 
+               string.find(l,"(%d+)-([^-]+)-([^-]+)-(%d+)-(.+)")
             track = {}
             track.id = id
             track.artist_link_name = string.gsub(artist_link_name, '\\_', '-')
+            track.album_name = string.gsub(album_name, '\\_', '-')
             track.album_id = album_id
             track.display_name = track_name
             jamendo_list[id] = track
@@ -367,8 +371,9 @@ function save_cache()
    local bus = io.open(cache_file, "w")
    bus:write(cache_header .. "\n")
    for id,track in pairs(jamendo_list) do
-      bus:write(string.format("%s-%s-%s-%s\n", id, 
+      bus:write(string.format("%s-%s-%s-%s-%s\n", id, 
                               string.gsub(track.artist_link_name, '-', '\\_'),
+                              string.gsub(track.album_name, '-', '\\_'),
                               track.album_id, track.display_name))
    end
    bus:flush()
