@@ -300,8 +300,8 @@ end
 -- them into symbols so we need to do it ourselves.
 function utf8_codes_to_symbols (s)
    local hexnums = "[%dabcdefABCDEF]"
-   local pattern = string.format("\\u(%s%s%s%s?%s?)", 
-                                 hexnums, hexnums, hexnums, hexnums, hexnums)
+   local pattern = string.format("\\u(%s%s%s%s?)", 
+                                 hexnums, hexnums, hexnums, hexnums)
    local decode = function(code)
                      code = tonumber(code, 16)
                      if code < 128 then -- one-byte symbol
