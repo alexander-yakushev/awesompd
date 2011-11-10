@@ -3,3 +3,14 @@ This is an advanced MPD widget\client for AwesomeWM.
 For the detailed installation guide see http://awesome.naquadah.org/wiki/Awesompd_widget .
 
 Also you can find an example of widget configuration in file rcsample.lua.
+
+### Changes in 1.1.0
+
+* Album covers are now also shown for the local tracks (images are taken from the current track's folder)
+
+* When the Jamendo track is playing you can visit artist's or album's page from the Jamendo menu
+
+* Notification now shows the album name for the current track (for both local and Jamendo tracks)
+
+* A few minor modifications and bugfixes
+
