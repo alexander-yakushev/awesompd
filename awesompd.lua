@@ -104,6 +104,12 @@ function awesompd.get_extended_info(track)
    return result
 end
 
+-- Returns true if the current status is either PLAYING or PAUSED
+function awesompd:playing_or_paused()
+   return self.status == awesompd.PLAYING 
+      or self.status == awesompd.PAUSED
+end
+
 -- /// Helper functions ///
 
 -- Just like awful.util.pread, but takes an argument how to read like
@@ -422,7 +428,7 @@ function awesompd:menu_playback()
       table.insert(new_menu, { "Play\\Pause", 
                                self:command_toggle(), 
                                self.ICONS.PLAY_PAUSE })
-      if self.status ~= self.STOPPED and self.status ~= self.DISCONNECTED then
+      if self:playing_or_paused() then
          if self.list_array and self.list_array[self.current_number-1] then
             table.insert(new_menu, 
                          { "Prev: " .. 
@@ -750,7 +756,7 @@ function awesompd:remove_hint()
 end
 
 function awesompd:notify_track()
-   if self.status ~= awesompd.STOPPED then
+   if self:playing_or_paused() then
       local caption = self.status_text
       local nf_text = self.get_display_name(self.current_track)
       local al_cover = nil
@@ -823,14 +829,13 @@ function awesompd:update_widget()
    self:check_notify()
 end
 
--- This function is called by update_track each time when the content
--- of the widget text must be changed.
+-- This function is called by update_track each time content of
+-- the widget must be changed.
 function awesompd:update_widget_text()
-   if self.status == awesompd.DISCONNECTED or 
-      self.status == awesompd.STOPPED then
-      self.text = self.status
-   else
+   if self:playing_or_paused() then
       self.text = self.get_display_name(self.current_track)
+   else
+      self.text = self.status
    end
 end
 
