@@ -729,7 +729,7 @@ end
 
 function awesompd:add_jamendo_tracks(track_table)
    for i = 1,table.getn(track_table) do
-      self:command("add " .. track_table[i].stream)
+      self:command("add '" .. track_table[i].stream .. "'")
    end
    self.recreate_menu = true
    self.recreate_list = true

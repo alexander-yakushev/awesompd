@@ -86,6 +86,7 @@ local search_template = { fields = { "id", "name" },
                           params = { order = ORDER_RELEVANCE,
                                      n = 1}}
 
+-- DEPRECATED. Will be removed in the next major release.
 -- Returns default stream number for MP3 format. Requests API for it
 -- not more often than every hour.
 local function get_default_mp3_stream()
@@ -111,11 +112,11 @@ function get_id_from_link(link)
    return id
 end
 
--- Returns link to music stream for the given track ID. Uses MP3
+-- Returns link to music stream for the given track ID. Uses Ogg
 -- format and the default stream for it.
 local function get_link_by_id(id)
-   return string.format("http://stream%s.jamendo.com/stream/%s/mp31/", 
-                        get_default_mp3_stream(), id)
+   -- This function is subject to change in the future.
+   return string.format("http://jamstore.radionomy.net/?trackid=%s&format=ogg2", id)
 end
 
 -- -- Returns the album id for given music stream.
