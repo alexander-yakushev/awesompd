@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2011 Alexander Yakushev
--- @release v1.1.0
+-- @release v1.1.1
 ---------------------------------------------------------------------------
 
 -- Grab environment
@@ -105,6 +105,9 @@ end
 -- given text is not the Jamendo stream returns nil.
 function get_id_from_link(link)
    local _, _, id = string.find(link,"jamendo.com/stream/(%d+)")
+   if not id then -- Handle streams from jamstore.radionomy.net
+      _, _, id = string.find(link,"jamstore.radionomy.net/%?trackid=(%d+)")
+   end
    return id
 end
 
@@ -427,7 +430,7 @@ end
 -- Checks if track_name is actually a link to Jamendo stream. If true
 -- returns the file with album cover for the track.
 function try_get_cover(track_name)
-   local id = get_id_from_link(track_name, true)
+   local id = get_id_from_link(track_name)
    if id then 
       return get_album_cover(id)
    end
