@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2010-2011 Alexander Yakushev
--- @release v1.1.1
+-- @release v1.1.2
 ---------------------------------------------------------------------------
 
 awesompd = {}
@@ -34,7 +34,7 @@ local keygrabber = keygrabber
 
 -- Debug stuff
 
-local enable_dbg = false
+local enable_dbg = true
 local function dbg (...)
    if enable_dbg then
       print(...)
@@ -248,16 +248,41 @@ end
 -- Function that registers buttons on the widget.
 function awesompd:register_buttons(buttons)
    widget_buttons = {}
+   self.global_bindings = {}
    for b=1,table.getn(buttons) do
       if type(buttons[b][1]) == "string" then
          mods = { buttons[b][1] }
       else
          mods = buttons[b][1]
       end
-      table.insert(widget_buttons, 
-                   awful.button(mods, buttons[b][2], buttons[b][3]))
+      if type(buttons[b][2]) == "number" then 
+         -- This is a mousebinding, bind it to the widget
+         table.insert(widget_buttons, 
+                      awful.button(mods, buttons[b][2], buttons[b][3]))
+      else 
+         -- This is a global keybinding, remember it for later usage in append_global_keys
+         table.insert(self.global_bindings, awful.key(mods, buttons[b][2], buttons[b][3]))
+      end
    end
    self.widget:buttons(self.ajoin(widget_buttons))
+end
+
+-- Takes the current table with keybindings and adds widget's own
+-- global keybindings that were specified in register_buttons.
+-- If keytable is not specified, then adds bindings to default
+-- globalkeys table. If specified, then adds bindings to keytable and
+-- returns it.
+function awesompd:append_global_keys(keytable)
+   if keytable then
+      for i = 1, table.getn(self.global_bindings) do
+         keytable = awful.util.table.join(keytable, self.global_bindings[i])
+      end
+      return keytable
+   else
+      for i = 1, table.getn(self.global_bindings) do
+         globalkeys = awful.util.table.join(globalkeys, self.global_bindings[i])
+      end
+   end
 end
 
 -- /// Group of mpc command functions ///

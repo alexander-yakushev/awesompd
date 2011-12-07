@@ -127,17 +127,22 @@ mysystray = widget({ type = "systray" })
           port = 6600 }
   }
 
-  -- Set the buttons of the widget
+  -- Set the buttons of the widget. Keyboard keys are working in the
+  -- entire Awesome environment. Also look at the line 352.
   musicwidget:register_buttons({ { "", awesompd.MOUSE_LEFT, musicwidget:command_playpause() },
      			       { "Control", awesompd.MOUSE_SCROLL_UP, musicwidget:command_prev_track() },
   			       { "Control", awesompd.MOUSE_SCROLL_DOWN, musicwidget:command_next_track() },
   			       { "", awesompd.MOUSE_SCROLL_UP, musicwidget:command_volume_up() },
   			       { "", awesompd.MOUSE_SCROLL_DOWN, musicwidget:command_volume_down() },
-  			       { "", awesompd.MOUSE_RIGHT, musicwidget:command_show_menu() } })
+  			       { "", awesompd.MOUSE_RIGHT, musicwidget:command_show_menu() },
+                               { "", "XF86AudioLowerVolume", musicwidget:command_volume_down() },
+                               { "", "XF86AudioRaiseVolume", musicwidget:command_volume_up() },
+                               { modkey, "Pause", musicwidget:command_playpause() } })
+
   musicwidget:run() -- After all configuration is done, run the widget
 
 -- END OF AWESOMPD WIDGET DECLARATION
--- Don't forget to add the widget to the wibox. It is done on the line 207.
+-- Don't forget to add the widget to the wibox. It is done on the line 216.
 
 mywibox = {}
 mypromptbox = {}
@@ -343,6 +348,9 @@ clientbuttons = awful.util.table.join(
     awful.button({ modkey }, 3, awful.mouse.client.resize))
 
 -- Set keys
+-- Add this line before root.keys(globalkeys).
+musicwidget:append_global_keys()
+
 root.keys(globalkeys)
 -- }}}
 
