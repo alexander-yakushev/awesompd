@@ -16,6 +16,7 @@ local assert = assert
 local print = print
 local tonumber = tonumber
 local math = math
+local tostring = tostring
 
 module('jamendo')
 
