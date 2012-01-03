@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2011 Alexander Yakushev
--- @release v1.1.2
+-- @release v1.1.3
 ---------------------------------------------------------------------------
 
 -- Grab environment
@@ -415,7 +415,7 @@ function fetch_album_cover_request(track_id)
             string.sub(a_id, 1, string.len(a_id) - 3) 
          track.album_image = 
             string.format("http://imgjam.com/albums/s%s/%s/covers/1.100.jpg",
-                          prefix, a_id)
+                          prefix == "" and 0 or prefix, a_id)
       end
       
       return file_path, string.format("wget %s -O %s > /dev/null",
