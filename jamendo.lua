@@ -17,6 +17,7 @@ local print = print
 local tonumber = tonumber
 local math = math
 local tostring = tostring
+local asyncshell = asyncshell
 
 module('jamendo')
 
@@ -388,10 +389,10 @@ end
 -- Retrieve cache on initialization
 retrieve_cache()
 
--- Returns a file containing an album cover for given track id.  First
--- searches in the cache folder. If file is not there, fetches it from
--- the Internet and saves into the cache folder.
-function get_album_cover(track_id)
+-- Returns a filename of the album cover and formed wget request that
+-- downloads the album cover for the given track name. If the album
+-- cover already exists returns nil as the second argument.
+function fetch_album_cover_request(track_id)
    local track = jamendo_list[track_id]
    local album_id = track.album_id
 
@@ -417,8 +418,20 @@ function get_album_cover(track_id)
                           prefix, a_id)
       end
       
-      f = io.popen("wget " .. track.album_image .. " -O " 
-                   .. file_path .. " > /dev/null")
+      return file_path, string.format("wget %s -O %s > /dev/null",
+                                      track.album_image, file_path)
+   else -- Cover already downloaded, return its filename and nil
+      return file_path, nil
+   end
+end
+
+-- Returns a file containing an album cover for given track id.  First
+-- searches in the cache folder. If file is not there, fetches it from
+-- the Internet and saves into the cache folder.
+function get_album_cover(track_id)
+   local file_path, fetch_req = fetch_album_cover_request(track_id)
+   if fetch_req then
+      local f = io.popen(fetch_req)
       f:close()
 
       -- Let's check if file is finally there, just in case
@@ -429,12 +442,29 @@ function get_album_cover(track_id)
    return file_path
 end
 
+-- Same as get_album_cover, but downloads (if necessary) the cover
+-- asynchronously.
+function get_album_cover_async(track_id)
+   local file_path, fetch_req = fetch_album_cover_request(track_id)
+   if fetch_req then
+      asyncshell.request(fetch_req)
+   end
+end
+
 -- Checks if track_name is actually a link to Jamendo stream. If true
 -- returns the file with album cover for the track.
 function try_get_cover(track_name)
    local id = get_id_from_link(track_name)
    if id then 
       return get_album_cover(id)
+   end
+end
+
+-- Same as try_get_cover, but calls get_album_cover_async inside.
+function try_get_cover_async(track_name)
+   local id = get_id_from_link(track_name)
+   if id then
+      return get_album_cover_async(id)
    end
 end
 

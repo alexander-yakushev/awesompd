@@ -25,6 +25,7 @@ function awesompd.try_require(module)
 end
 
 awesompd.try_require("utf8")
+awesompd.try_require("asyncshell")
 awesompd.try_require("jamendo")
 local beautiful = require('beautiful')
 local naughty = naughty
@@ -940,6 +941,16 @@ function awesompd:update_track(file)
 	    self.recreate_list = true
 	    self.current_number = tonumber(self.find_pattern(status_line,"%d+"))
             self:update_widget_text()
+
+            -- If the track is not the last, asynchronously download
+            -- the cover for the next track.
+            if self.list_array and self.current_number ~= table.getn(self.list_array) then
+               -- Get the link (in case it is Jamendo stream) to the next track
+               local next_track = 
+                  self:command_read('playlist -f "%file%" | head -' .. 
+                                    self.current_number + 1 .. ' | tail -1', "*line")
+               jamendo.try_get_cover_async(next_track)
+            end
 	 end
 	 local tmp_pst = string.find(status_line,"%d+%:%d+%/")
 	 local progress = self.find_pattern(status_line,"%#%d+/%d+") .. " " .. string.sub(status_line,tmp_pst)
