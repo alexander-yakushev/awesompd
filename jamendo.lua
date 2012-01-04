@@ -164,6 +164,11 @@ function return_track_table(request_table)
       end
       _, _, parse_table[i].artist_link_name = 
          string.find(parse_table[i].artist_url, "\\/artist\\/(.+)")
+      -- Remove Jamendo escape slashes
+      parse_table[i].artist_name =
+         string.gsub(parse_table[i].artist_name, "\\/", "/")
+      parse_table[i].name = string.gsub(parse_table[i].name, "\\/", "/")
+
       parse_table[i].display_name = 
          parse_table[i].artist_name .. " - " .. parse_table[i].name
       -- Do Jamendo a favor, extract album_id for the track yourself
