@@ -177,7 +177,7 @@ end
 -- Function that returns a new awesompd object.
 function awesompd:create()
 -- Initialization
-   instance = {}
+   local instance = {}
    setmetatable(instance,self)
    self.__index = self
    instance.current_server = 1
