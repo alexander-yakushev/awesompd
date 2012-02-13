@@ -1,8 +1,10 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
--- @copyright 2010-2011 Alexander Yakushev
--- @release v1.1.4
+-- @copyright 2010-2012 Alexander Yakushev
+-- @release v1.2.0
 ---------------------------------------------------------------------------
+
+require("wibox")
 
 awesompd = {}
 
@@ -25,7 +27,9 @@ function awesompd.try_require(module)
 end
 
 awesompd.try_require("utf8")
-awesompd.try_require("asyncshell")
+if not asyncshell then
+   awesompd.try_require("asyncshell")
+end
 awesompd.try_require("jamendo")
 local beautiful = require('beautiful')
 local naughty = naughty
@@ -181,7 +185,7 @@ function awesompd:create()
    setmetatable(instance,self)
    self.__index = self
    instance.current_server = 1
-   instance.widget = widget({ type = "textbox" })
+   instance.widget = wibox.widget.textbox()
    instance.notification = nil
    instance.scroll_pos = 1
    instance.text = ""
@@ -214,10 +218,10 @@ function awesompd:create()
    instance.browser = "firefox"
    
 -- Widget configuration
-   instance.widget:add_signal("mouse::enter", function(c)
+   instance.widget:connect_signal("mouse::enter", function(c)
                                                  instance:notify_track()
                                               end)
-   instance.widget:add_signal("mouse::leave", function(c)
+   instance.widget:connect_signal("mouse::leave", function(c)
                                                  instance:remove_hint()
                                               end)
    return instance
@@ -235,14 +239,14 @@ function awesompd:run()
    self:update_track()
    self:check_playlists()
    self.update_widget_timer = timer({ timeout = 1 })
-   self.update_widget_timer:add_signal("timeout", function() 
-                                                     self:update_widget() 
-                                                  end)
+   self.update_widget_timer:connect_signal("timeout", function()
+                                                         self:update_widget()
+                                                      end)
    self.update_widget_timer:start()
    self.update_track_timer = timer({ timeout = self.update_interval })
-   self.update_track_timer:add_signal("timeout", function() 
-                                                    self:update_track() 
-                                                 end)
+   self.update_track_timer:connect_signal("timeout", function()
+                                                        self:update_track()
+                                                     end)
    self.update_track_timer:start()
 end
 
@@ -421,7 +425,7 @@ function awesompd:command_show_menu()
                          { "Jamendo", jamendo_menu } }
          end 
          table.insert(new_menu, { "Servers", self:menu_servers() }) 
-         self.main_menu = awful.menu({ items = new_menu, width = 300 }) 
+         self.main_menu = awful.menu({ items = new_menu, theme = { width = 300 } }) 
          self.recreate_menu = false 
       end 
       self.main_menu:toggle() 
@@ -822,7 +826,7 @@ end
 
 -- This function actually sets the text on the widget.
 function awesompd:set_text(text)
-   self.widget.text = self:wrap_output(text)
+   self.widget:set_markup(self:wrap_output(text))
 end
 
 function awesompd.find_pattern(text, pattern, start)
@@ -1055,7 +1059,7 @@ function awesompd:display_inputbox(title_text, prompt_text, hook)
    local wprompt = awful.widget.prompt({ layout = awful.widget.layout.horizontal.leftright })
    local wtbox = widget({ type = "textbox" })
    wtbox:margin({ right = margin, left = margin, bottom = margin, top = margin })
-   wtbox.text = "<b>" .. title_text .. "</b>"
+   wtbox:set_markup("<b>" .. title_text .. "</b>")
    wbox.widgets = { wtbox, wprompt, layout = awful.widget.layout.vertical.flex }
    awful.prompt.run( { prompt = " " .. prompt_text .. ": " }, wprompt.widget, 
                      exe_callback, nil, nil, nil, done_callback)
