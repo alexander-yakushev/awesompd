@@ -8,10 +8,11 @@
 asyncshell = {}
 asyncshell.request_table = {}
 asyncshell.id_counter = 0
-asyncshell.file_template = '/tmp/asyncshellreq'
+asyncshell.folder = "/tmp/asyncshell"
+asyncshell.file_template = asyncshell.folder .. '/req'
 
-os.execute('rm -f /tmp/myaw2.log')
-local nprint = function(t) os.execute("echo '" .. t .. "' >> /tmp/myaw2.log") end
+-- Create a directory for asynchell response files
+os.execute("mkdir -p " .. asyncshell.folder)
 
 -- Returns next tag - unique identifier of the request
 local function next_id()
@@ -21,16 +22,17 @@ end
 
 -- Sends an asynchronous request for an output of the shell command.
 -- @param command Command to be executed and taken output from
--- @param callback Function of one argument to be called when the command finishes
+-- @param callback Function to be called when the command finishes
 -- @return Request ID
 function asyncshell.request(command, callback)
    local id = next_id()
    local tmpfname = asyncshell.file_template .. id
    asyncshell.request_table[id] = {callback = callback}
-   local req = 
+   local req =
       string.format("bash -c '%s > %s; " ..
                     'echo "asyncshell.deliver(%s)" | ' ..
-                    "awesome-client'", string.gsub(command, "'", "'\\''"), tmpfname, id, tmpfname)
+                    "awesome-client' 2> /dev/null",
+                 string.gsub(command, "'", "'\\''"), tmpfname, id, tmpfname)
    awful.util.spawn(req)
    return id
 end
@@ -40,7 +42,8 @@ end
 -- @param id Request ID
 -- @param output The output file of the shell command to be delievered
 function asyncshell.deliver(id)
-   if asyncshell.request_table[id] then
+   if asyncshell.request_table[id] and
+      asyncshell.request_table[id].callback then
       local output = io.open(asyncshell.file_template .. id, 'r')
       asyncshell.request_table[id].callback(output)
    end
@@ -54,7 +57,8 @@ end
 function asyncshell.demand(command, timeout)
    local id = next_id()
    local tmpfname = asyncshell.file_template .. id
-   local f = io.popen(string.format("(%s > %s; echo asyncshell_done) & (sleep %s; echo asynchell_timeout)",
+   local f = io.popen(string.format("(%s > %s; echo asyncshell_done) & " ..
+                                    "(sleep %s; echo asynchell_timeout)",
                                     command, tmpfname, timeout))
    local result = f:read("*line")
    if result == "asyncshell_done" then
