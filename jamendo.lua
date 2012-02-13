@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2011 Alexander Yakushev
--- @release v1.1.3
+-- @release v1.1.4
 ---------------------------------------------------------------------------
 
 -- Grab environment
@@ -423,7 +423,7 @@ function fetch_album_cover_request(track_id)
                           prefix == "" and 0 or prefix, a_id)
       end
       
-      return file_path, string.format("wget %s -O %s > /dev/null",
+      return file_path, string.format("wget %s -O %s 2> /dev/null",
                                       track.album_image, file_path)
    else -- Cover already downloaded, return its filename and nil
       return file_path, nil
