@@ -909,7 +909,7 @@ function awesompd:update_track(file)
 	 self.recreate_menu = true
          self:update_widget_text()
       end
-      if string.find(track_line,"volume:") then
+      if string.find(track_line,"volume:") or string.find(track_line,"Updating DB") then
 	 if self.status ~= awesompd.STOPPED then
             self.status = awesompd.STOPPED
 	    self.current_number = 0
