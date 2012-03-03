@@ -304,6 +304,7 @@ end
 
 -- Takes a command to mpc and read mode and returns the result.
 function awesompd:command_read(com, mode)
+   mode = mode or "*line"
    self:command(com, function(_, f)
                         result = f:read(mode)
                      end)
@@ -1093,8 +1094,14 @@ function awesompd:try_get_local_cover()
       end
 
       -- Get the path to the file currently playing.
-      local _, _, current_file_folder = 
-         string.find(self:command_read('current -f "%file%"', "*line"), '(.+%/).*')
+      local current_file = self:command_read('current -f "%file%"')
+      local _, _, current_file_folder = string.find(current_file, '(.+%/).*')
+
+      -- Check if the current file is not some kind of http stream or
+      -- Spotify track (like spotify:track:5r65GeuIoebfJB5sLcuPoC)
+      if not current_file_folder or string.match(current_file, "%w+://") then
+          return -- Let the default image to be the cover
+      end
 
       local folder = music_folder .. current_file_folder
       
