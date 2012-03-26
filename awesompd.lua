@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2010-2012 Alexander Yakushev
--- @release v1.2.0
+-- @release v1.2.1
 ---------------------------------------------------------------------------
 
 require("wibox")
@@ -1133,7 +1133,7 @@ function awesompd:try_get_local_cover()
             -- expressions suck:[
             local front_cover = 
                self.pread('echo "' .. covers .. 
-                          '" | grep -i "cover\|front\|folder\|albumart" | head -n 1', "*line")
+                          '" | grep -P -i "cover|front|folder|albumart" | head -n 1', "*line")
             if front_cover then
                result = folder .. front_cover
             end

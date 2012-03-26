@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2011-2012 Alexander Yakushev
--- @release v1.2.0
+-- @release v1.2.1
 ---------------------------------------------------------------------------
 
 -- Grab environment
