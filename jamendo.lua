@@ -107,18 +107,15 @@ end
 -- Returns the track ID from the given link to Jamendo stream. If the
 -- given text is not the Jamendo stream returns nil.
 function get_id_from_link(link)
-   local _, _, id = string.find(link,"jamendo.com/stream/(%d+)")
-   if not id then -- Handle streams from jamstore.radionomy.net
-      _, _, id = string.find(link,"jamstore.radionomy.net/%?trackid=(%d+)")
-   end
+   local _, _, id = string.find(link,"storage.newjamendo.com/%?trackid=(%d+)")
    return id
 end
 
--- Returns link to music stream for the given track ID. Uses Ogg
+-- Returns link to music stream for the given track ID. Uses MP3
 -- format and the default stream for it.
 local function get_link_by_id(id)
    -- This function is subject to change in the future.
-   return string.format("http://jamstore.radionomy.net/?trackid=%s&format=ogg2", id)
+   return string.format("http://storage.newjamendo.com/%?trackid=%s&format=mp31&u=0", id)
 end
 
 -- -- Returns the album id for given music stream.
