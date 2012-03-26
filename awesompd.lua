@@ -1023,6 +1023,34 @@ function awesompd.protect_string(str, for_menu)
    end
 end
 
+-- Initialize the inputbox.
+function awesompd:init_inputbox()
+   local width = 200
+   local height = 30
+   local border_color = beautiful.bg_focus or '#535d6c'
+   local margin = 4
+   local wbox = wibox({ name = "awmpd_ibox", height = height , width = width, 
+                        border_color = border_color, border_width = 1 })
+   local ws = screen[mouse.screen].workarea
+
+   wbox.screen = mouse.screen
+   wbox.ontop = true
+
+   local wprompt = awful.widget.prompt()
+   local wtbox = wibox.widget.textbox()
+   local wtmarginbox = wibox.layout.margin(wtbox, margin)
+   local tw, th = wtbox:fit(-1, -1)
+   wbox:geometry({ x = ws.width - width - 5, y = 25,
+                   width = 200, height = th * 2 + margin})
+   local layout = wibox.layout.flex.vertical()
+   layout:add(wtmarginbox)
+   layout:add(wprompt)
+   wbox:set_widget(layout)
+   self.inputbox = { wibox = wbox,
+                     title = wtbox,
+                     prompt = wprompt }
+end
+
 -- Displays an inputbox on the screen (looks like naughty with prompt).
 -- title_text - bold text on the first line
 -- prompt_text - preceding text on the second line
@@ -1030,40 +1058,25 @@ end
 -- Use it like this:
 -- self:display_inputbox("Search music on Jamendo", "Artist", print)
 function awesompd:display_inputbox(title_text, prompt_text, hook)
-   if self.inputbox then -- Inputbox already exists, replace it
-      keygrabber.stop()
-      self.inputbox.screen = nil
-      self.inputbox = nil
+   if not self.inputbox then
+      self:init_inputbox()
    end
-   local width = 200
-   local height = 30
-   local border_color = beautiful.bg_focus or '#535d6c'
-   local margin = 5
-   local wbox = wibox({ name = "awmpd_ibox", height = height , width = width, 
-                        border_color = border_color, border_width = 1 })
-   self.inputbox = wbox
-   local ws = screen[mouse.screen].workarea
-
-   wbox:geometry({ x = ws.width - width - 5, y = 25 })
-   wbox.screen = mouse.screen
-   wbox.ontop = true
+   if self.inputbox.wibox.visible then -- Inputbox already exists, replace it
+      keygrabber.stop()
+   end
 
    local exe_callback = function(s)
                            hook(s)
-                           wbox.screen = nil
-                           self.inputbox = nil
+                           self.inputbox.wibox.visible = false
                         end
    local done_callback = function()
-                            wbox.screen = nil
-                            self.inputbox = nil
+                            self.inputbox.wibox.visible = false
                          end
-   local wprompt = awful.widget.prompt({ layout = awful.widget.layout.horizontal.leftright })
-   local wtbox = widget({ type = "textbox" })
-   wtbox:margin({ right = margin, left = margin, bottom = margin, top = margin })
-   wtbox:set_markup("<b>" .. title_text .. "</b>")
-   wbox.widgets = { wtbox, wprompt, layout = awful.widget.layout.vertical.flex }
-   awful.prompt.run( { prompt = " " .. prompt_text .. ": " }, wprompt.widget, 
-                     exe_callback, nil, nil, nil, done_callback)
+   self.inputbox.title:set_markup("<b>" .. title_text .. "</b>")
+   awful.prompt.run( { prompt = " " .. prompt_text .. ": ", bg_cursor = "#222222" }, 
+                     self.inputbox.prompt.widget,
+                     exe_callback, nil, nil, nil, done_callback, nil, nil)
+   self.inputbox.wibox.visible = true
 end
 
 -- Gets the cover for the given track. First looks in the Jamendo
