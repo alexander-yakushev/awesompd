@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2011-2012 Alexander Yakushev
--- @release v1.2.1
+-- @release v1.2.2
 ---------------------------------------------------------------------------
 
 -- Grab environment
@@ -32,6 +32,18 @@ local function file_exists(filename, mode)
    else
       return false
    end
+end
+
+local function str_interpose(coll, sep)
+   if #coll == 0 then
+      return ""
+   end
+   local result = coll[1]
+   for i = 2, #coll do
+      result = result .. sep .. coll[i]
+   end
+   print(result)
+   return result
 end
 
 -- Global variables
@@ -187,26 +199,18 @@ end
 -- return - HTTP-request
 function form_request(request_table)
    local curl_str = "curl -A 'Mozilla/4.0' -fsm 5 \"%s\""
-   local url = "http://api.jamendo.com/en/?m=get2%s%s"
+   local url = "http://api.jamendo.com/get2/%s/%s/json/%s/?%s"
    request_table = request_table or current_request_table
    
    local fields = request_table.fields or current_request_table.fields
    local joins = request_table.joins or current_request_table.joins
    local unit = request_table.unit or current_request_table.unit
    
-   -- Form field&joins string (like field1+field2+fieldN%2Fjoin+)
-   local fnj_string = "&m_params="
-   for i = 1, table.getn(fields) do
-      fnj_string = fnj_string .. fields[i] .. "+"
-   end
-   fnj_string = string.sub(fnj_string,1,string.len(fnj_string)-1)
-   
-   fnj_string = fnj_string .. "%2F" .. unit .. "%2Fjson%2F"
-   for i = 1, table.getn(joins) do
-      fnj_string = fnj_string .. joins[i] .. "+"
-   end
-   fnj_string = fnj_string .. "%2F"
-   
+   -- Form fields string (like field1+field2+fieldN)
+   local f_string = str_interpose(fields, "+")
+   -- Form joins string
+   local j_string = str_interpose(joins, "+")
+
    local params = {}
    -- If parameters where supplied in request_table, add them to the
    -- parameters in current_request_table.
@@ -233,7 +237,7 @@ function form_request(request_table)
       param_string = param_string .. "&" .. k .. "=" .. v
    end
 
-   return string.format(curl_str, string.format(url, fnj_string, param_string))
+   return string.format(curl_str, string.format(url, f_string, unit, j_string, param_string))
 end
 
 -- Primitive function for parsing Jamendo API JSON response.  Does not
