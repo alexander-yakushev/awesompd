@@ -837,18 +837,20 @@ end
 -- Scroll the given text by the current number of symbols.
 function awesompd:scroll_text(text)
    local result = text
-   if self.output_size < utf8len(text) then
-      text = text .. " - "
-      if self.scroll_pos + self.output_size - 1 > utf8len(text) then 
-	 result = utf8sub(text, self.scroll_pos)
-	 result = result .. utf8sub(text, 1, self.scroll_pos + self.output_size - 1 - utf8len(text))
-	 self.scroll_pos = self.scroll_pos + 1
-	 if self.scroll_pos > utf8len(text) then
-	    self.scroll_pos = 1
-	 end
-      else
-	 result = utf8sub(text, self.scroll_pos, self.scroll_pos + self.output_size - 1)
-	 self.scroll_pos = self.scroll_pos + 1
+   if self.scrolling then
+      if self.output_size < utf8len(text) then
+         text = text .. " - "
+         if self.scroll_pos + self.output_size - 1 > utf8len(text) then
+            result = utf8sub(text, self.scroll_pos)
+            result = result .. utf8sub(text, 1, self.scroll_pos + self.output_size - 1 - utf8len(text))
+            self.scroll_pos = self.scroll_pos + 1
+            if self.scroll_pos > utf8len(text) then
+               self.scroll_pos = 1
+            end
+         else
+            result = utf8sub(text, self.scroll_pos, self.scroll_pos + self.output_size - 1)
+            self.scroll_pos = self.scroll_pos + 1
+         end
       end
    end
    return result
