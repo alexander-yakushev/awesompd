@@ -848,6 +848,10 @@ function awesompd:scroll_text(text)
             self.scroll_pos = self.scroll_pos + 1
          end
       end
+   else
+      if self.output_size < utf8len(text) then
+         result = utf8sub(text, 1, self.output_size)
+      end
    end
    return result
 end
