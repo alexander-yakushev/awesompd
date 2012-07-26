@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2011 Alexander Yakushev
--- @release v1.1.4
+-- @release v1.1.5
 ---------------------------------------------------------------------------
 
 -- Grab environment
@@ -107,7 +107,7 @@ end
 -- Returns the track ID from the given link to Jamendo stream. If the
 -- given text is not the Jamendo stream returns nil.
 function get_id_from_link(link)
-   local _, _, id = string.find(link,"storage.newjamendo.com/%?trackid=(%d+)")
+   local _, _, id = string.find(link,"storage%-new.newjamendo.com%?trackid=(%d+)")
    return id
 end
 
@@ -115,7 +115,7 @@ end
 -- format and the default stream for it.
 local function get_link_by_id(id)
    -- This function is subject to change in the future.
-   return string.format("http://storage.newjamendo.com/%?trackid=%s&format=mp31&u=0", id)
+   return string.format("http://storage-new.newjamendo.com?trackid=%s&format=mp31&u=0", id)
 end
 
 -- -- Returns the album id for given music stream.
