@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
 -- @copyright 2010-2012 Alexander Yakushev
--- @release v1.2.1
+-- @release v1.2.3
 ---------------------------------------------------------------------------
 
 require("wibox")
