@@ -5,13 +5,12 @@
 ---------------------------------------------------------------------------
 
 local wibox = require("wibox")
+local awful = require('awful')
 local beautiful = require('beautiful')
 local naughty = require('naughty')
-local awful = require('awful')
 local format = string.format
-local keygrabber = keygrabber
 
-awesompd = {}
+local awesompd = {}
 
 -- Function for checking icons and modules. Checks if a file exists,
 -- and if it does, returns the path to file, nil otherwise.
@@ -31,33 +30,10 @@ function awesompd.try_require(module)
    end
 end
 
-awesompd.try_require("utf8")
-if not asyncshell then
-   awesompd.try_require("asyncshell")
-end
-awesompd.try_require("jamendo")
+local utf8 = awesompd.try_require("utf8")
+asyncshell = awesompd.try_require("asyncshell")
+local jamendo = awesompd.try_require("jamendo")
 
--- Debug stuff
-
-local enable_dbg = true
-local function dbg (...)
-   if enable_dbg then
-      print(...)
-   end
-end
-
-local function tbl_pr(tbl,shift)
-   if enable_dbg then
-      local shift = shift or ""
-      for k, v in pairs(tbl) do
-         print(shift .. k .. ": " .. tostring(v))
-         if type(v) == "table" then
-            tbl_pr(v, shift .. "  ")
-         end
-      end
-   end
-end
-      
 -- Constants
 awesompd.PLAYING = "Playing"
 awesompd.PAUSED = "Paused"
@@ -229,7 +205,6 @@ end
 
 -- Registers timers for the widget
 function awesompd:run()
-   enable_dbg = self.debug_mode
    self.load_icons(self.path_to_icons)
    jamendo.set_current_format(self.jamendo_format)
    if self.album_cover_size > 100 then
@@ -831,24 +806,24 @@ function awesompd:set_text(text)
 end
 
 function awesompd.find_pattern(text, pattern, start)
-   return utf8sub(text, string.find(text, pattern, start))
+   return utf8.sub(text, string.find(text, pattern, start))
 end
 
 -- Scroll the given text by the current number of symbols.
 function awesompd:scroll_text(text)
    local result = text
    if self.scrolling then
-      if self.output_size < utf8len(text) then
+      if self.output_size < utf8.len(text) then
          text = text .. " - "
-         if self.scroll_pos + self.output_size - 1 > utf8len(text) then
-            result = utf8sub(text, self.scroll_pos)
-            result = result .. utf8sub(text, 1, self.scroll_pos + self.output_size - 1 - utf8len(text))
+         if self.scroll_pos + self.output_size - 1 > utf8.len(text) then
+            result = utf8.sub(text, self.scroll_pos)
+            result = result .. utf8.sub(text, 1, self.scroll_pos + self.output_size - 1 - utf8.len(text))
             self.scroll_pos = self.scroll_pos + 1
-            if self.scroll_pos > utf8len(text) then
+            if self.scroll_pos > utf8.len(text) then
                self.scroll_pos = 1
             end
          else
-            result = utf8sub(text, self.scroll_pos, self.scroll_pos + self.output_size - 1)
+            result = utf8.sub(text, self.scroll_pos, self.scroll_pos + self.output_size - 1)
             self.scroll_pos = self.scroll_pos + 1
          end
       end
@@ -1019,9 +994,9 @@ end
 -- used.
 function awesompd.protect_string(str, for_menu)
    if for_menu then
-      return utf8replace(str, awesompd.ESCAPE_MENU_SYMBOL_MAPPING)
+      return utf8.replace(str, awesompd.ESCAPE_MENU_SYMBOL_MAPPING)
    else
-      return utf8replace(str, awesompd.ESCAPE_SYMBOL_MAPPING)
+      return utf8.replace(str, awesompd.ESCAPE_SYMBOL_MAPPING)
    end
 end
 
