@@ -5,6 +5,8 @@
 -- ...synchronously
 -- wwidget.text = asyncshell.demand('wscript -Kiev', 5):read("*l") or "Error"
 
+local awful = require('awful')
+
 asyncshell = {}
 asyncshell.request_table = {}
 asyncshell.id_counter = 0
@@ -33,7 +35,7 @@ function asyncshell.request(command, callback)
                     'echo "asyncshell.deliver(%s)" | ' ..
                     "awesome-client' 2> /dev/null",
                  string.gsub(command, "'", "'\\''"), tmpfname, id, tmpfname)
-   awful.util.spawn(req)
+   awful.util.spawn(req, false)
    return id
 end
 
@@ -65,3 +67,5 @@ function asyncshell.demand(command, timeout)
       return io.open(tmpfname)
    end
 end
+
+return asyncshell

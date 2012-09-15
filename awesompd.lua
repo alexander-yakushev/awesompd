@@ -4,7 +4,12 @@
 -- @release v1.2.3
 ---------------------------------------------------------------------------
 
-require("wibox")
+local wibox = require("wibox")
+local beautiful = require('beautiful')
+local naughty = require('naughty')
+local awful = require('awful')
+local format = string.format
+local keygrabber = keygrabber
 
 awesompd = {}
 
@@ -31,11 +36,6 @@ if not asyncshell then
    awesompd.try_require("asyncshell")
 end
 awesompd.try_require("jamendo")
-local beautiful = require('beautiful')
-local naughty = naughty
-local awful = awful
-local format = string.format
-local keygrabber = keygrabber
 
 -- Debug stuff
 
@@ -1151,3 +1151,5 @@ end
 function awesompd:command_toggle()
    return self:command_playpause()
 end
+
+return awesompd

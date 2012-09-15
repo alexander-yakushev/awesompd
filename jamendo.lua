@@ -6,7 +6,7 @@
 
 -- Grab environment
 local os = os
-local awful = awful
+local awful = require('awful')
 local string = string
 local table = table
 local io = io
