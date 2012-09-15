@@ -119,7 +119,7 @@ end
 -- Returns the track ID from the given link to Jamendo stream. If the
 -- given text is not the Jamendo stream returns nil.
 function get_id_from_link(link)
-   local _, _, id = string.find(link,"storage%-new.newjamendo.com%?trackid=(%d+)")
+   local _, _, id = string.find(link,"storage%-new.newjamendo.com/%?trackid=(%d+)")
    return id
 end
 
