@@ -138,6 +138,14 @@ function awesompd.split(s)
    return l
 end
 
+-- Returns the given string if it is not nil or non-empty, otherwise
+-- returns nil.
+local function non_empty(s)
+   if s and s ~= "" then
+      return s
+   end
+end
+
 -- Icons
 
 function awesompd.load_icons(path)
@@ -267,9 +275,19 @@ end
 
 -- /// Group of mpc command functions ///
 
-function awesompd:mpcquery()
-   return "mpc -h " .. self.servers[self.current_server].server ..
+-- Returns a mpc command with all necessary parameters. Boolean
+-- human_readable argument configures if the command special
+-- formatting of the output (to be later used in parsing) should not
+-- be used.
+function awesompd:mpcquery(human_readable)
+   local result =
+      "mpc -h " .. self.servers[self.current_server].server ..
       " -p " .. self.servers[self.current_server].port .. " "
+   if human_readable then
+      return result
+   else
+      return result ..' -f "%file%-<>-%name%-<>-%title%-<>-%artist%-<>-%album%" '
+   end
 end
 
 -- Takes a command to mpc and a hook that is provided with awesompd
@@ -694,7 +712,7 @@ end
 
 -- Checks if the current playlist has changed after the last check.
 function awesompd:check_list()
-   local bus = io.popen(self:mpcquery() .. "playlist")
+   local bus = io.popen(self:mpcquery(true) .. "playlist")
    local info = bus:read("*all")
    bus:close()
    if info ~= self.list_line then
@@ -711,7 +729,7 @@ end
 
 -- Checks if the collection of playlists changed after the last check.
 function awesompd:check_playlists()
-   local bus = io.popen(self:mpcquery() .. "lsplaylists")
+   local bus = io.popen(self:mpcquery(true) .. "lsplaylists")
    local info = bus:read("*all")
    bus:close()
    if info ~= self.playlists_line then
@@ -905,13 +923,25 @@ function awesompd:update_track(file)
          self:update_state(track_line)
       else
          self:update_state(options_line)
-         local _, _, new_file, new_album = 
-            string.find(self:command_read('current -f "%file%-<>-%album%"', "*line"), "(.+)%-<>%-(.*)")
-	 if new_file ~= self.current_track.unique_name then
+         local _, _, new_file, station, title, artist, album =
+            string.find(track_line, "(.*)%-<>%-(.*)%-<>%-(.*)%-<>%-(.*)%-<>%-(.*)")
+         local display_name, force_update = artist .. " - " .. title, false
+         -- The following code checks if the current track is an
+         -- Internet link. Internet radios change tracks, but the
+         -- current file stays the same, so we should manually compare
+         -- its title.
+         if string.match(new_file, "http://") then
+            album = non_empty(station) or ""
+            display_name = non_empty(title) or new_file
+            if display_name ~= self.current_track.display_name then
+               force_update = true
+            end
+         end
+	 if new_file ~= self.current_track.unique_name or force_update then
             self.current_track = jamendo.get_track_by_link(new_file)
             if not self.current_track then
-               self.current_track = { display_name = track_line,
-                                      album_name = new_album }
+               self.current_track = { display_name = display_name,
+                                      album_name = album }
             end
             self.current_track.unique_name = new_file
             if self.show_album_cover then
@@ -1061,13 +1091,13 @@ end
 -- folders. If there is no cover art either returns the default album
 -- cover.
 function awesompd:get_cover(track)
-   return jamendo.try_get_cover(track) or 
-   self:try_get_local_cover() or self.ICONS.DEFAULT_ALBUM_COVER
+   return jamendo.try_get_cover(track) or
+   self:try_get_local_cover(track) or self.ICONS.DEFAULT_ALBUM_COVER
 end
 
 -- Tries to find an album cover for the track that is currently
 -- playing.
-function awesompd:try_get_local_cover()
+function awesompd:try_get_local_cover(current_file)
    if self.mpd_config then
       local result
       -- First find the music directory in MPD configuration file
@@ -1084,7 +1114,6 @@ function awesompd:try_get_local_cover()
       end
 
       -- Get the path to the file currently playing.
-      local current_file = self:command_read('current -f "%file%"')
       local _, _, current_file_folder = string.find(current_file, '(.+%/).*')
 
       -- Check if the current file is not some kind of http stream or
