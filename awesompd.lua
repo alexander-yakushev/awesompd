@@ -198,7 +198,7 @@ function awesompd:create()
                                                  instance:notify_track()
                                               end)
    instance.widget:connect_signal("mouse::leave", function(c)
-                                                 instance:remove_hint()
+                                                 instance:hide_notification()
                                               end)
    return instance
 end
@@ -266,6 +266,11 @@ function awesompd:append_global_keys(keytable)
 end
 
 -- /// Group of mpc command functions ///
+
+function awesompd:mpcquery()
+   return "mpc -h " .. self.servers[self.current_server].server ..
+      " -p " .. self.servers[self.current_server].port .. " "
+end
 
 -- Takes a command to mpc and a hook that is provided with awesompd
 -- instance and the result of command execution.
@@ -372,7 +377,7 @@ end
 function awesompd:command_show_menu()
    return 
    function()
-      self:remove_hint()
+      self:hide_notification()
       if self.recreate_menu then 
          local new_menu = {}
          if self.main_menu ~= nil then 
@@ -724,7 +729,7 @@ end
 -- Changes the current server to the specified one.
 function awesompd:change_server(server_number)
    self.current_server = server_number
-   self:remove_hint()
+   self:hide_notification()
    self.recreate_menu = true
    self.recreate_playback = true
    self.recreate_list = true
@@ -743,8 +748,8 @@ end
 
 -- /// End of menu generation functions ///
 
-function awesompd:add_hint(hint_title, hint_text, hint_image)
-   self:remove_hint()
+function awesompd:show_notification(hint_title, hint_text, hint_image)
+   self:hide_notification()
    self.notification = naughty.notify({ title      =  hint_title
 					, text       = awesompd.protect_string(hint_text)
 					, timeout    = 5
@@ -754,7 +759,7 @@ function awesompd:add_hint(hint_title, hint_text, hint_image)
                                      })
 end
 
-function awesompd:remove_hint()
+function awesompd:hide_notification()
    if self.notification ~= nil then
       naughty.destroy(self.notification)
       self.notification = nil
@@ -770,7 +775,7 @@ function awesompd:notify_track()
          nf_text = self.get_extended_info(self.current_track)
          al_cover = self.current_track.album_cover
       end
-      self:add_hint(caption, nf_text, al_cover)
+      self:show_notification(caption, nf_text, al_cover)
    end
 end
 
@@ -786,18 +791,13 @@ function awesompd:notify_state(state_changed)
    for i = 2, table.getn(state_array) do
       full_state = full_state .. "\n" .. state_array[i]
    end
-   self:add_hint(state_header, full_state)
+   self:show_notification(state_header, full_state)
 end
 
 function awesompd:wrap_output(text)
    return format('<span font="%s">%s%s%s</span>', 
                  self.font, self.ldecorator, 
                  awesompd.protect_string(text), self.rdecorator)
-end
-
-function awesompd:mpcquery()
-   return "mpc -h " .. self.servers[self.current_server].server .. 
-      " -p " .. self.servers[self.current_server].port .. " "
 end
 
 -- This function actually sets the text on the widget.
@@ -856,12 +856,12 @@ function awesompd:check_notify()
 end
 
 function awesompd:notify_connect()
-   self:add_hint("Connected", "Connection established to " .. self.servers[self.current_server].server ..
+   self:show_notification("Connected", "Connection established to " .. self.servers[self.current_server].server ..
 		 " on port " .. self.servers[self.current_server].port)
 end
 
 function awesompd:notify_disconnect()
-   self:add_hint("Disconnected", "Cannot connect to " .. self.servers[self.current_server].server ..
+   self:show_notification("Disconnected", "Cannot connect to " .. self.servers[self.current_server].server ..
 		 " on port " .. self.servers[self.current_server].port)
 end
 
