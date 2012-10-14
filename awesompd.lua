@@ -108,7 +108,7 @@ end
 -- Slightly modified function awful.util.table.join.
 function awesompd.ajoin(buttons)
     local result = {}
-    for i = 1, table.getn(buttons) do
+    for i = 1, #buttons do
         if buttons[i] then
             for k, v in pairs(buttons[i]) do
                 if type(k) == "number" then
@@ -237,7 +237,7 @@ end
 function awesompd:register_buttons(buttons)
    widget_buttons = {}
    self.global_bindings = {}
-   for b=1,table.getn(buttons) do
+   for b=1, #buttons do
       if type(buttons[b][1]) == "string" then
          mods = { buttons[b][1] }
       else
@@ -262,12 +262,12 @@ end
 -- returns it.
 function awesompd:append_global_keys(keytable)
    if keytable then
-      for i = 1, table.getn(self.global_bindings) do
+      for i = 1, #self.global_bindings do
          keytable = awful.util.table.join(keytable, self.global_bindings[i])
       end
       return keytable
    else
-      for i = 1, table.getn(self.global_bindings) do
+      for i = 1, #self.global_bindings do
          globalkeys = awful.util.table.join(globalkeys, self.global_bindings[i])
       end
    end
@@ -466,7 +466,7 @@ function awesompd:menu_playback()
                                                    true),
                         self:command_prev_track(), self.ICONS.PREV })
          end
-         if self.list_array and self.current_number ~= table.getn(self.list_array) then
+         if self.list_array and self.current_number ~= #self.list_array then
             table.insert(new_menu, 
                          { "Next: " .. 
                            awesompd.protect_string(jamendo.replace_link(
@@ -489,7 +489,7 @@ function awesompd:menu_list()
    if self.recreate_list then
       local new_menu = {}
       if self.list_array then
-         local total_count = table.getn(self.list_array) 
+         local total_count = #self.list_array 
          local start_num = (self.current_number - 15 > 0) and self.current_number - 15 or 1
          local end_num = (self.current_number + 15 < total_count ) and self.current_number + 15 or total_count
          for i = start_num, end_num do
@@ -510,8 +510,8 @@ end
 function awesompd:menu_playlists()
    if self.recreate_playlists then
       local new_menu = {}
-      if table.getn(self.playlists_array) > 0 then
-	 for i = 1, table.getn(self.playlists_array) do
+      if #self.playlists_array > 0 then
+	 for i = 1, #self.playlists_array do
 	    local submenu = {}
 	    submenu[1] = { "Add to current", self:command_load_playlist(self.playlists_array[i]) }
 	    submenu[2] = { "Replace current", self:command_replace_playlist(self.playlists_array[i]) }
@@ -530,7 +530,7 @@ end
 function awesompd:menu_servers()
    if self.recreate_servers then
       local new_menu = {}
-      for i = 1, table.getn(self.servers) do
+      for i = 1, #self.servers do
 	 table.insert(new_menu, {"Server: " .. self.servers[i].server .. 
 				 ", port: " .. self.servers[i].port,
 			      function() self:change_server(i) end,
@@ -597,7 +597,7 @@ function awesompd:menu_jamendo_top()
          self:add_hint("Jamendo Top 100 by " .. 
                        jamendo.current_request_table.params.order.short_display,
                     format("Added %s tracks to the playlist",
-                           table.getn(track_table)))
+                           #track_table))
       end
    end
 end
@@ -692,7 +692,7 @@ function awesompd:menu_jamendo_search_by(what)
                 function(s)
                    local result = jamendo.search_by(what, s)
                    if result then
-                      local track_count = table.getn(result.tracks)
+                      local track_count = #result.tracks
                       self:add_jamendo_tracks(result.tracks)
                       self:add_hint(format("%s \"%s\" was found",
                                            what.display,
@@ -757,7 +757,7 @@ function awesompd:change_server(server_number)
 end
 
 function awesompd:add_jamendo_tracks(track_table)
-   for i = 1,table.getn(track_table) do
+   for i = 1, #track_table do
       self:command("add '" .. string.gsub(track_table[i].stream, '\\/', '/') .. "'")
    end
    self.recreate_menu = true
@@ -806,7 +806,7 @@ function awesompd:notify_state(state_changed)
    state_header = state_array[state_changed]
    table.remove(state_array,state_changed)
    full_state = state_array[1]
-   for i = 2, table.getn(state_array) do
+   for i = 2, #state_array do
       full_state = full_state .. "\n" .. state_array[i]
    end
    self:show_notification(state_header, full_state)
@@ -956,7 +956,7 @@ function awesompd:update_track(file)
 
             -- If the track is not the last, asynchronously download
             -- the cover for the next track.
-            if self.list_array and self.current_number ~= table.getn(self.list_array) then
+            if self.list_array and self.current_number ~= #self.list_array then
                -- Get the link (in case it is Jamendo stream) to the next track
                local next_track = 
                   self:command_read('playlist -f "%file%" | head -' .. 
