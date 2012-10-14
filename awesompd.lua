@@ -1126,7 +1126,7 @@ function awesompd:try_get_local_cover(current_file)
       
       -- Get all images in the folder. Also escape occasional single
       -- quotes in folder name.
-      local request = format("ls '%s' | grep -P '\\.jpg\|\\.png\|\\.gif|\\.jpeg'",
+      local request = format("ls '%s' | grep -P '\\.jpg|\\.png|\\.gif|\\.jpeg'",
                              string.gsub(folder, "'", "'\\''"))
 
       local covers = self.pread(request, "*all")
