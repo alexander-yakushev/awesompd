@@ -930,7 +930,9 @@ function awesompd:update_track(file)
          -- Internet link. Internet radios change tracks, but the
          -- current file stays the same, so we should manually compare
          -- its title.
-         if string.match(new_file, "http://") then
+         if string.match(new_file, "http://") and
+            -- The following line is awful. This needs to be replaced ASAP.
+            not string.match(new_file, "http://storage%-new%.newjamendo%.com") then
             album = non_empty(station) or ""
             display_name = non_empty(title) or new_file
             if display_name ~= self.current_track.display_name then
