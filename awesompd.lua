@@ -591,13 +591,13 @@ function awesompd:menu_jamendo_top()
    function ()
       local track_table = jamendo.return_track_table()
       if not track_table then
-         self:add_hint("Can't connect to Jamendo server", "Please check your network connection")
+         self:show_notification("Can't connect to Jamendo server", "Please check your network connection")
       else
          self:add_jamendo_tracks(track_table)
-         self:add_hint("Jamendo Top 100 by " .. 
-                       jamendo.current_request_table.params.order.short_display,
-                    format("Added %s tracks to the playlist",
-                           #track_table))
+         self:show_notification("Jamendo Top 100 by " ..
+                                jamendo.current_request_table.params.order.short_display,
+                                format("Added %s tracks to the playlist",
+                                       #track_table))
       end
    end
 end
@@ -694,15 +694,15 @@ function awesompd:menu_jamendo_search_by(what)
                    if result then
                       local track_count = #result.tracks
                       self:add_jamendo_tracks(result.tracks)
-                      self:add_hint(format("%s \"%s\" was found",
-                                           what.display,
-                                           result.search_res.name),
-                                    format("Added %s tracks to the playlist",
-                                           track_count))
+                      self:show_notification(format("%s \"%s\" was found",
+                                                    what.display,
+                                                    result.search_res.name),
+                                             format("Added %s tracks to the playlist",
+                                                    track_count))
                    else
-                      self:add_hint("Search failed",
-                                    format("%s \"%s\" was not found",
-                                           what.display, s))
+                      self:show_notification("Search failed",
+                                             format("%s \"%s\" was not found",
+                                                    what.display, s))
                    end
                 end
              self:display_inputbox("Search music on Jamendo",

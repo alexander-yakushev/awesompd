@@ -470,7 +470,7 @@ function jamendo.search_by(what, s)
    local req = search_template
    req.unit = what.unit
    req.params.searchquery = s
-   local resp = jamendo.perform_request(form_request(req))
+   local resp = jamendo.perform_request(jamendo.form_request(req))
    if resp then
       local search_res = jamendo.parse_json(resp)[1]
       
