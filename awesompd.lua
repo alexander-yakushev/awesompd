@@ -386,6 +386,38 @@ function awesompd:command_open_in_browser(link)
           end
 end
 
+--- Change to the previous server.
+function awesompd:command_previous_server()
+   return function()
+             servers = table.getn(self.servers)
+             if servers == 1 or servers == nil then
+                return
+             else
+                if self.current_server > 1 then
+                   self:change_server(self.current_server - 1)
+                else
+                   self:change_server(servers)
+                end
+             end
+          end
+end
+
+--- Change to the previous server.
+function awesompd:command_next_server()
+   return function()
+             servers = table.getn(self.servers)
+             if servers == 1 or servers == nil then
+                return
+             else
+                if self.current_server < servers then
+                   self:change_server(self.current_server + 1)
+                else
+                   self:change_server(1)
+                end
+             end
+          end
+end
+
 -- /// End of mpc command functions ///
 
 -- /// Menu generation functions ///
