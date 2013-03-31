@@ -85,6 +85,8 @@ mysystray = widget({ type = "systray" })
 
   musicwidget = awesompd:create() -- Create awesompd widget
   musicwidget.font = "Liberation Mono" -- Set widget font 
+--musicwidget.font_color = "#000000"	--Set widget font color
+--musicwidget.background = "#FFFFFF"	--Set widget background
   musicwidget.scrolling = true -- If true, the text in the widget will be scrolled
   musicwidget.output_size = 30 -- Set the size of widget in symbols
   musicwidget.update_interval = 10 -- Set the update interval in seconds
