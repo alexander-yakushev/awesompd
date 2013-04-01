@@ -190,6 +190,8 @@ function awesompd:create()
 -- Default user options
    instance.servers = { { server = "localhost", port = 6600 } }
    instance.font = "Monospace"
+   instance.font_color = beautiful.fg_normal
+   instance.background = beautiful.bg_normal
    instance.scrolling = true
    instance.output_size = 30
    instance.update_interval = 10
@@ -813,9 +815,9 @@ function awesompd:notify_state(state_changed)
 end
 
 function awesompd:wrap_output(text)
-   return format('<span font="%s">%s%s%s</span>', 
-                 self.font, self.ldecorator, 
-                 awesompd.protect_string(text), self.rdecorator)
+	return format('<span background="%s" font="Terminus 12"> <span font="%s" color="%s" background = "%s">%s%s%s</span></span>',
+	self.background, self.font, self.font_color,self.background,self.ldecorator,
+	awesompd.protect_string(text), self.rdecorator)
 end
 
 -- This function actually sets the text on the widget.
