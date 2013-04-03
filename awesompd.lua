@@ -358,7 +358,7 @@ end
 
 function awesompd:command_load_playlist(name)
    return function()
-             self:command("load " .. name, function() 
+             self:command("load \"" .. name .. "\"", function() 
                                               self.recreate_menu = true 
                                            end)
           end
@@ -367,7 +367,7 @@ end
 function awesompd:command_replace_playlist(name)
    return function()
              self:command("clear")
-             self:command("load " .. name)
+             self:command("load \"" .. name .. "\"")
              self:command("play 1", self.update_track)
           end
 end
