@@ -198,6 +198,11 @@ function awesompd:create()
    instance.recreate_jamendo_browse = true
    instance.current_number = 0
    instance.menu_shown = false
+   instance.state_volume = "NaN"
+   instance.state_repeat = "NaN"
+   instance.state_random = "NaN"
+   instance.state_single = "NaN"
+   instance.state_consume = "NaN"
 
 -- Default user options
    instance.servers = { { server = "localhost", port = 6600 } }
