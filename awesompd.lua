@@ -850,8 +850,8 @@ function awesompd:notify_state(state_changed)
 end
 
 function awesompd:wrap_output(text)
-   return format('<span background="%s" font="Terminus 12"> <span font="%s" color="%s" background = "%s">%s%s%s</span></span>',
-		self.background, self.font, self.font_color,self.background,self.ldecorator,
+   return format('<span font="%s" color="%s" background="%s">%s%s%s</span>',
+		self.font, self.font_color,self.background,self.ldecorator,
 		awesompd.protect_string(text), self.rdecorator)
 end
 
