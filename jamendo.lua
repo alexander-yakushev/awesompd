@@ -1,25 +1,13 @@
 ---------------------------------------------------------------------------
 -- @author Alexander Yakushev <yakushev.alex@gmail.com>
--- @copyright 2011 Alexander Yakushev
--- @release v1.1.5
+-- @copyright 2011-2013 Alexander Yakushev
+-- @release v1.2.4
 ---------------------------------------------------------------------------
 
 -- Grab environment
-local os = os
-local awful = awful
-local string = string
-local table = table
-local io = io
-local pairs = pairs
-local type = type
-local assert = assert
-local print = print
-local tonumber = tonumber
-local math = math
-local tostring = tostring
-local asyncshell = asyncshell
+local awful = require('awful')
 
-module('jamendo')
+local jamendo = {}
 
 -- UTILITY STUFF
 -- Checks whether file specified by filename exists.
@@ -34,48 +22,60 @@ local function file_exists(filename, mode)
    end
 end
 
--- Global variables
-FORMAT_MP3 = { display = "MP3 (128k)", 
-               short_display = "MP3", 
-               value = "mp31" }
-FORMAT_OGG = { display = "Ogg Vorbis (q4)", 
-               short_display = "Ogg", 
-               value = "ogg2" }
-ORDER_RATINGDAILY = { display = "Daily rating", 
-                      short_display = "daily rating", 
-                      value = "ratingday_desc" }
-ORDER_RATINGWEEKLY = { display = "Weekly rating", 
-                      short_display = "weekly rating", 
-                      value = "ratingweek_desc" }
-ORDER_RATINGTOTAL = { display = "All time rating", 
-                      short_display = "all time rating", 
-                      value = "ratingtotal_desc" }
-ORDER_RANDOM = { display = "Random", 
-                 short_display = "random", 
-                 value = "random_desc" }
-ORDER_RELEVANCE = { display = "None (consecutive)", 
-                    short_display = "none",
-                    value = "searchweight_desc" }
-SEARCH_ARTIST = { display = "Artist",
-                  unit = "artist",
-                  value = "artist_id" }
-SEARCH_ALBUM = { display = "Album",
-                 unit = "album",
-                 value = "album_id" }
-SEARCH_TAG = { display = "Tag",
-               unit = "tag",
-               value = "tag_id" }
-ALL_FORMATS = { FORMAT_MP3, FORMAT_OGG }
-ALL_ORDERS = { ORDER_RELEVANCE, ORDER_RANDOM, ORDER_RATINGDAILY, 
-               ORDER_RATINGWEEKLY, ORDER_RATINGTOTAL }
+local function str_interpose(coll, sep)
+   if #coll == 0 then
+      return ""
+   end
+   local result = coll[1]
+   for i = 2, #coll do
+      result = result .. sep .. coll[i]
+   end
+   print(result)
+   return result
+end
 
-current_request_table = { unit = "track", 
-                          fields = {"id", "artist_url", "artist_name", "name", 
-                                    "stream", "album_image", "album_name" },
-                          joins = { "track_album", "album_artist" },
-                          params = { streamencoding = FORMAT_MP3, 
-                                     order = ORDER_RATINGWEEKLY,
-                                     n = 100 }}
+-- Global variables
+jamendo.FORMAT_MP3 = { display = "MP3 (128k)",
+                       short_display = "MP3",
+                       value = "mp31" }
+jamendo.FORMAT_OGG = { display = "Ogg Vorbis (q4)",
+                       short_display = "Ogg",
+                       value = "ogg2" }
+jamendo.ORDER_RATINGDAILY = { display = "Daily rating",
+                              short_display = "daily rating",
+                              value = "ratingday_desc" }
+jamendo.ORDER_RATINGWEEKLY = { display = "Weekly rating",
+                               short_display = "weekly rating",
+                               value = "ratingweek_desc" }
+jamendo.ORDER_RATINGTOTAL = { display = "All time rating",
+                              short_display = "all time rating",
+                              value = "ratingtotal_desc" }
+jamendo.ORDER_RANDOM = { display = "Random",
+                         short_display = "random",
+                         value = "random_desc" }
+jamendo.ORDER_RELEVANCE = { display = "None (consecutive)",
+                            short_display = "none",
+                            value = "searchweight_desc" }
+jamendo.SEARCH_ARTIST = { display = "Artist",
+                          unit = "artist",
+                          value = "artist_id" }
+jamendo.SEARCH_ALBUM = { display = "Album",
+                         unit = "album",
+                         value = "album_id" }
+jamendo.SEARCH_TAG = { display = "Tag",
+                       unit = "tag",
+                       value = "tag_id" }
+jamendo.ALL_FORMATS = { jamendo.FORMAT_MP3, jamendo.FORMAT_OGG }
+jamendo.ALL_ORDERS = { ORDER_RELEVANCE, ORDER_RANDOM, ORDER_RATINGDAILY,
+                       ORDER_RATINGWEEKLY, ORDER_RATINGTOTAL }
+
+jamendo.current_request_table = { unit = "track",
+                                  fields = {"id", "artist_url", "artist_name", "name", 
+                                            "stream", "album_image", "album_name" },
+                                  joins = { "track_album", "album_artist" },
+                                  params = { streamencoding = jamendo.FORMAT_MP3,
+                                             order = jamendo.ORDER_RATINGWEEKLY,
+                                             n = 100 }}
 
 -- Local variables
 local jamendo_list = {}
@@ -95,10 +95,10 @@ local function get_default_mp3_stream()
    if not default_mp3_stream or 
       (os.time() - default_mp3_stream.last_checked) > 3600 then
       local trygetlink = 
-         perform_request("echo $(curl -w %{redirect_url} " .. 
-                         "'http://api.jamendo.com/get2/stream/track/redirect/" .. 
-                         "?streamencoding="..FORMAT_MP3.value.."&id=729304')")
-         local _, _, prefix = string.find(trygetlink,"stream(%d+)\.jamendo\.com")
+         jamendo.perform_request("echo $(curl -w %{redirect_url} " .. 
+                                 "'http://api.jamendo.com/get2/stream/track/redirect/" .. 
+                                 "?streamencoding="..jamendo.FORMAT_MP3.value.."&id=729304')")
+         local _, _, prefix = string.find(trygetlink, "stream(%d+)%.jamendo%.com")
          default_mp3_stream = { id = prefix, last_checked = os.time() }
    end
    return default_mp3_stream.id
@@ -106,8 +106,8 @@ end
 
 -- Returns the track ID from the given link to Jamendo stream. If the
 -- given text is not the Jamendo stream returns nil.
-function get_id_from_link(link)
-   local _, _, id = string.find(link,"storage%-new.newjamendo.com%?trackid=(%d+)")
+function jamendo.get_id_from_link(link)
+   local _, _, id = string.find(link,"storage%-new.newjamendo.com/%?trackid=(%d+)")
    return id
 end
 
@@ -127,8 +127,8 @@ end
 -- end
 
 -- Returns the track table for the given music stream.
-function get_track_by_link(link)
-   local id = get_id_from_link(link, true)
+function jamendo.get_track_by_link(link)
+   local id = jamendo.get_id_from_link(link, true)
    if id and jamendo_list[id] then
       return jamendo_list[id]
    end
@@ -136,8 +136,8 @@ end
 
 -- If a track is actually a Jamendo stream, replace it with normal
 -- track name.
-function replace_link(track_name)
-   local track = get_track_by_link(track_name)
+function jamendo.replace_link(track_name)
+   local track = jamendo.get_track_by_link(track_name)
    if track then
       return track.display_name
    else
@@ -147,14 +147,14 @@ end
 
 -- Returns table of track IDs, names and other things based on the
 -- request table.
-function return_track_table(request_table)
-   local req_string = form_request(request_table)
-   local response = perform_request(req_string)
+function jamendo.return_track_table(request_table)
+   local req_string = jamendo.form_request(request_table)
+   local response = jamendo.perform_request(req_string)
    if not response then
       return nil -- Bad internet connection
    end
-   parse_table = parse_json(response)
-   for i = 1, table.getn(parse_table) do
+   local parse_table = jamendo.parse_json(response)
+   for i = 1, #parse_table do
       if parse_table[i].stream == "" then
          -- Some songs don't have Ogg stream, use MP3 instead
          parse_table[i].stream = get_link_by_id(parse_table[i].id)
@@ -176,7 +176,7 @@ function return_track_table(request_table)
       -- Save fetched tracks for further caching
       jamendo_list[parse_table[i].id] = parse_table[i]
    end
-   save_cache()
+   jamendo.save_cache()
    return parse_table
 end
 
@@ -185,35 +185,27 @@ end
 -- For all values that do not exist in request_table use ones from
 -- current_request_table.
 -- return - HTTP-request
-function form_request(request_table)
+function jamendo.form_request(request_table)
    local curl_str = "curl -A 'Mozilla/4.0' -fsm 5 \"%s\""
-   local url = "http://api.jamendo.com/en/?m=get2%s%s"
-   request_table = request_table or current_request_table
+   local url = "http://api.jamendo.com/get2/%s/%s/json/%s/?%s"
+   request_table = request_table or jamendo.current_request_table
    
-   local fields = request_table.fields or current_request_table.fields
-   local joins = request_table.joins or current_request_table.joins
-   local unit = request_table.unit or current_request_table.unit
+   local fields = request_table.fields or jamendo.current_request_table.fields
+   local joins = request_table.joins or jamendo.current_request_table.joins
+   local unit = request_table.unit or jamendo.current_request_table.unit
    
-   -- Form field&joins string (like field1+field2+fieldN%2Fjoin+)
-   local fnj_string = "&m_params="
-   for i = 1, table.getn(fields) do
-      fnj_string = fnj_string .. fields[i] .. "+"
-   end
-   fnj_string = string.sub(fnj_string,1,string.len(fnj_string)-1)
-   
-   fnj_string = fnj_string .. "%2F" .. unit .. "%2Fjson%2F"
-   for i = 1, table.getn(joins) do
-      fnj_string = fnj_string .. joins[i] .. "+"
-   end
-   fnj_string = fnj_string .. "%2F"
-   
+   -- Form fields string (like field1+field2+fieldN)
+   local f_string = str_interpose(fields, "+")
+   -- Form joins string
+   local j_string = str_interpose(joins, "+")
+
    local params = {}
    -- If parameters where supplied in request_table, add them to the
    -- parameters in current_request_table.
    if request_table.params and 
-      request_table.params ~= current_request_table.params then
+      request_table.params ~= jamendo.current_request_table.params then
       -- First fill params with current_request_table parameters
-      for k, v in pairs(current_request_table.params) do
+      for k, v in pairs(jamendo.current_request_table.params) do
          params[k] = v
       end
       -- Then add and overwrite them with request_table parameters
@@ -221,7 +213,7 @@ function form_request(request_table)
          params[k] = v
       end
    else -- Or just use current_request_table.params
-      params = current_request_table.params
+      params = jamendo.current_request_table.params
    end
    -- Form parameter string (like param1=value1&param2=value2)
    local param_string = ""
@@ -233,7 +225,7 @@ function form_request(request_table)
       param_string = param_string .. "&" .. k .. "=" .. v
    end
 
-   return string.format(curl_str, string.format(url, fnj_string, param_string))
+   return string.format(curl_str, string.format(url, f_string, unit, j_string, param_string))
 end
 
 -- Primitive function for parsing Jamendo API JSON response.  Does not
@@ -241,7 +233,7 @@ end
 -- Provides basic safety (correctly handles special symbols like comma
 -- and curly brackets inside strings)
 -- text - JSON text
-function parse_json(text)
+function jamendo.parse_json(text)
    local parse_table = {}
    local block = {}
    local i = 0
@@ -289,7 +281,7 @@ function parse_json(text)
                      curr_val = ""
                   else
                      _, i, curr_val = string.find(text,'(.-[^%\\])"', i+1)
-                     curr_val = utf8_codes_to_symbols(curr_val)
+                     curr_val = jamendo.utf8_codes_to_symbols(curr_val)
                   end
                   instring = false
                end
@@ -306,7 +298,7 @@ end
 
 -- Jamendo returns Unicode symbols as \uXXXX. Lua does not transform
 -- them into symbols so we need to do it ourselves.
-function utf8_codes_to_symbols (s)
+function jamendo.utf8_codes_to_symbols (s)
    local hexnums = "[%dabcdefABCDEF]"
    local pattern = string.format("\\u(%s%s%s%s?)", 
                                  hexnums, hexnums, hexnums, hexnums)
@@ -317,7 +309,7 @@ function utf8_codes_to_symbols (s)
                      elseif code < 2048 then -- two-byte symbol
                         -- Grab high and low bytes
                         local hi = math.floor(code / 64)
-                        local lo = math.mod(code, 64)
+                        local lo = math.fmod(code, 64)
                         -- Return symbol as \hi\lo
                         return string.char(hi + 192, lo + 128)
                      elseif code < 65536 then
@@ -326,7 +318,7 @@ function utf8_codes_to_symbols (s)
                         local leftover = code - hi * 4096
                         local mi = math.floor(leftover / 64)
                         leftover = leftover - mi * 64
-                        local lo = math.mod(leftover, 64)
+                        local lo = math.fmod(leftover, 64)
                         -- Return symbol as \hi\mi\lo
                         return string.char(hi + 224, mi + 160, lo + 128)
                      elseif code < 1114112 then
@@ -336,7 +328,7 @@ function utf8_codes_to_symbols (s)
                         local hm = math.floor(leftover / 4096)
                         leftover = leftover - hm * 4096
                         local lm = math.floor(leftover / 64)
-                        local lo = math.mod(leftover, 64)
+                        local lo = math.fmod(leftover, 64)
                         -- Return symbol as \hi\hm\lm\lo
                         return string.char(hi + 240, hm + 128, lm + 128, lo + 128)
                      else -- It is not Unicode symbol at all
@@ -375,7 +367,7 @@ end
 
 -- Saves track IDs to track names and album IDs mapping into the cache
 -- file.
-function save_cache()
+function jamendo.save_cache()
    local bus = io.open(cache_file, "w")
    bus:write(cache_header .. "\n")
    for id,track in pairs(jamendo_list) do
@@ -394,7 +386,7 @@ retrieve_cache()
 -- Returns a filename of the album cover and formed wget request that
 -- downloads the album cover for the given track name. If the album
 -- cover already exists returns nil as the second argument.
-function fetch_album_cover_request(track_id)
+function jamendo.fetch_album_cover_request(track_id)
    local track = jamendo_list[track_id]
    local album_id = track.album_id
 
@@ -414,7 +406,7 @@ function fetch_album_cover_request(track_id)
       if not track.album_image then      -- Wow! We have album_id, but
          local a_id = tostring(album_id) --don't have album_image. Well,
          local prefix =                  --it happens.
-            string.sub(a_id, 1, string.len(a_id) - 3) 
+            string.sub(a_id, 1, #a_id - 3)
          track.album_image = 
             string.format("http://imgjam.com/albums/s%s/%s/covers/1.100.jpg",
                           prefix == "" and 0 or prefix, a_id)
@@ -430,8 +422,8 @@ end
 -- Returns a file containing an album cover for given track id.  First
 -- searches in the cache folder. If file is not there, fetches it from
 -- the Internet and saves into the cache folder.
-function get_album_cover(track_id)
-   local file_path, fetch_req = fetch_album_cover_request(track_id)
+function jamendo.get_album_cover(track_id)
+   local file_path, fetch_req = jamendo.fetch_album_cover_request(track_id)
    if fetch_req then
       local f = io.popen(fetch_req)
       f:close()
@@ -446,8 +438,8 @@ end
 
 -- Same as get_album_cover, but downloads (if necessary) the cover
 -- asynchronously.
-function get_album_cover_async(track_id)
-   local file_path, fetch_req = fetch_album_cover_request(track_id)
+function jamendo.get_album_cover_async(track_id)
+   local file_path, fetch_req = jamendo.fetch_album_cover_request(track_id)
    if fetch_req then
       asyncshell.request(fetch_req)
    end
@@ -455,32 +447,32 @@ end
 
 -- Checks if track_name is actually a link to Jamendo stream. If true
 -- returns the file with album cover for the track.
-function try_get_cover(track_name)
-   local id = get_id_from_link(track_name)
-   if id then 
-      return get_album_cover(id)
+function jamendo.try_get_cover(track_name)
+   local id = jamendo.get_id_from_link(track_name)
+   if id then
+      return jamendo.get_album_cover(id)
    end
 end
 
 -- Same as try_get_cover, but calls get_album_cover_async inside.
-function try_get_cover_async(track_name)
-   local id = get_id_from_link(track_name)
+function jamendo.try_get_cover_async(track_name)
+   local id = jamendo.get_id_from_link(track_name)
    if id then
-      return get_album_cover_async(id)
+      return jamendo.get_album_cover_async(id)
    end
 end
 
 -- Returns the track table for given query and search method.
 -- what - search method - SEARCH_ARTIST, ALBUM or TAG
 -- s - string to search
-function search_by(what, s)
+function jamendo.search_by(what, s)
    -- Get a default request and set unit and query
    local req = search_template
    req.unit = what.unit
    req.params.searchquery = s
-   local resp = perform_request(form_request(req))
+   local resp = jamendo.perform_request(jamendo.form_request(req))
    if resp then
-      local search_res = parse_json(resp)[1]
+      local search_res = jamendo.parse_json(resp)[1]
       
       if search_res then
          -- Now when we got the search result, find tracks filtered by
@@ -488,25 +480,25 @@ function search_by(what, s)
          local params = {}
          params[what.value] = search_res.id
          req = { params = params }
-         local track_table = return_track_table(req)
+         local track_table = jamendo.return_track_table(req)
          return { search_res = search_res, tracks = track_table }
       end
    end
 end
 
 -- Executes request_string with io.popen and returns the response.
-function perform_request(reqest_string)
-   local bus = assert(io.popen(reqest_string,'r'))
+function jamendo.perform_request(request_string)
+   local bus = assert(io.popen(request_string,'r'))
    local response = bus:read("*all")
    bus:close()
    -- Curl with popen can sometimes fail to fetch data when the
    -- connection is slow. Let's try again if it fails.
-   if string.len(response) == 0 then
-      bus = assert(io.popen(reqest_string,'r'))
+   if #response == 0 then
+      bus = assert(io.popen(request_string,'r'))
       response = bus:read("*all")
       bus:close()
       -- If it still can't read anything, return nil
-      if string.len(response) ~= 0 then 
+      if #response ~= 0 then
          return nil
       end
    end
@@ -514,11 +506,13 @@ function perform_request(reqest_string)
 end
 
 -- Sets default streamencoding in current_request_table.
-function set_current_format(format)
-   current_request_table.params.streamencoding = format
+function jamendo.set_current_format(format)
+   jamendo.current_request_table.params.streamencoding = format
 end
 
 -- Sets default order in current_request_table.
-function set_current_order(order)
-   current_request_table.params.order = order
+function jamendo.set_current_order(order)
+   jamendo.current_request_table.params.order = order
 end
+
+return jamendo
