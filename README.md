@@ -8,7 +8,7 @@ Also you can find an example of the widget configuration in the file rcsample.lu
 
 ## Version explanation ##
 
-Use this version with Awesome v3.4.x. If you are using the git pre-4.0 version of Awesome, please consider using [this](https://github.com/alexander-yakushev/awesompd/tree/for-awesome-git) version instead.
+Use this version with Awesome v3.4.x. If you are using Awesome v3.5+, please consider using [this](https://github.com/alexander-yakushev/awesompd/tree/master) version instead.
 
 ### Changes in 1.1.0 ###
 
