@@ -12,7 +12,7 @@ rcsample.lua.
 
 Use this version with Awesome v3.5.x. If you are using Awesome
 v.3.4.x, please consider using
-[this](https://github.com/alexander-yakushev/awesompd/awesompd/tree/awesome-3.4)
+[this](https://github.com/alexander-yakushev/awesompd/tree/awesome-3.4)
 version of the widget.
 
 ### Changes in 1.1.0 ###
