@@ -228,16 +228,24 @@ function awesompd:run()
 
    self:update_track()
    self:check_playlists()
-   self.update_widget_timer = timer({ timeout = 1 })
-   self.update_widget_timer:connect_signal("timeout", function()
-                                                         self:update_widget()
-                                                      end)
-   self.update_widget_timer:start()
-   self.update_track_timer = timer({ timeout = self.update_interval })
-   self.update_track_timer:connect_signal("timeout", function()
-                                                        self:update_track()
-                                                     end)
-   self.update_track_timer:start()
+
+   if scheduler then
+      scheduler.register_recurring("awesompd_scroll", 1,
+                                   function() self:update_widget() end)
+      scheduler.register_recurring("awesompd_update", self.update_interval,
+                                   function() self:update_track() end)
+   else
+      self.update_widget_timer = timer({ timeout = 1 })
+      self.update_widget_timer:connect_signal("timeout", function()
+                                                 self:update_widget()
+                                                         end)
+      self.update_widget_timer:start()
+      self.update_track_timer = timer({ timeout = self.update_interval })
+      self.update_track_timer:connect_signal("timeout", function()
+                                                self:update_track()
+                                                        end)
+      self.update_track_timer:start()
+   end
 end
 
 -- Function that registers buttons on the widget.
@@ -853,8 +861,9 @@ end
 
 function awesompd:wrap_output(text)
    return format('<span font="%s" color="%s" background="%s">%s%s%s</span>',
-                 self.font, self.font_color,self.background,self.ldecorator,
-                 awesompd.protect_string(text), self.rdecorator)
+                 self.font, self.font_color, self.background,
+                 (text == "" and "" or self.ldecorator), awesompd.protect_string(text),
+                 (text == "" and "" or self.rdecorator))
 end
 
 -- This function actually sets the text on the widget.
