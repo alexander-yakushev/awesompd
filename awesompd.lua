@@ -169,7 +169,7 @@ function awesompd:create()
    setmetatable(instance,self)
    self.__index = self
    instance.current_server = 1
-   instance.widget = wibox.widget.textbox()
+   instance.widget = wibox.layout.fixed.horizontal()
    instance.notification = nil
    instance.scroll_pos = 1
    instance.text = ""
@@ -225,6 +225,14 @@ function awesompd:run()
    if self.album_cover_size > 100 then
       self.album_cover_size = 100
    end
+
+   self.text_widget = wibox.widget.textbox()
+   if self.widget_icon then
+      self.icon_widget = wibox.widget.imagebox()
+      self.icon_widget:set_image(self.widget_icon)
+      self.widget:add(self.icon_widget)
+   end
+   self.widget:add(self.text_widget)
 
    self:update_track()
    self:check_playlists()
@@ -868,7 +876,7 @@ end
 
 -- This function actually sets the text on the widget.
 function awesompd:set_text(text)
-   self.widget:set_markup(self:wrap_output(text))
+   self.text_widget:set_markup(self:wrap_output(text))
 end
 
 function awesompd.find_pattern(text, pattern, start)

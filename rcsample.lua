@@ -127,6 +127,9 @@ local layouts =
    -- Set the folder where icons are located (change username to your login name)
    musicwidget.path_to_icons = "/home/unlogic/.config/awesome/icons"
 
+   -- Set the path to the icon to be displayed on the widget itself
+   -- musicwidget.widget_icon = "/path/to/icon"
+
    -- Set the default music format for Jamendo streams. You can change
    -- this option on the fly in awesompd itself.
    -- possible formats: awesompd.FORMAT_MP3, awesompd.FORMAT_OGG
