@@ -10,6 +10,8 @@ local beautiful = require('beautiful')
 local naughty = require('naughty')
 local format = string.format
 
+local module_path = (...):match ("(.+/)[^/]+$") or ""
+
 local awesompd = {}
 
 -- Function for checking icons and modules. Checks if a file exists,
@@ -22,9 +24,9 @@ end
 
 -- Function for loading modules.
 function awesompd.try_require(module)
-   if awesompd.try_load(awful.util.getdir("config") .. 
-                     "/awesompd/" .. module .. ".lua") then
-      return require('awesompd/' .. module)
+   if awesompd.try_load(awful.util.getdir("config") .. '/'..
+                        module_path .. module .. ".lua") then
+      return require(module_path .. module)
    else
       return require(module)
    end
