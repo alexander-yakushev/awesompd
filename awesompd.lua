@@ -1149,8 +1149,17 @@ end
 -- folders. If there is no cover art either returns the default album
 -- cover.
 function awesompd:get_cover(track)
-   return jamendo.try_get_cover(track) or
-   self:try_get_local_cover(track) or self.ICONS.DEFAULT_ALBUM_COVER
+   local radio_cover = nil
+   if self.radio_covers then
+      for station, cover in pairs(self.radio_covers) do
+         if track:match(station) then
+            radio_cover = cover
+            break
+         end
+      end
+   end
+   return radio_cover or jamendo.try_get_cover(track) or
+      self:try_get_local_cover(track) or self.ICONS.DEFAULT_ALBUM_COVER
 end
 
 -- Tries to find an album cover for the track that is currently
