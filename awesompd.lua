@@ -215,11 +215,12 @@ function awesompd:create()
    instance.smart_update_timer = timer({ timeout = instance.update_interval })
    -- Widget configuration
    instance.widget:connect_signal("mouse::enter", function(c)
-                                                 instance:notify_track()
-                                              end)
+	    instance:update_track()
+	    instance:notify_track()
+	 end)
    instance.widget:connect_signal("mouse::leave", function(c)
-                                                 instance:hide_notification()
-                                              end)
+	    instance:hide_notification()
+	 end)
    return instance
 end
 
