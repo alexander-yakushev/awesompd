@@ -209,8 +209,11 @@ function awesompd:create()
    instance.show_album_cover = true
    instance.album_cover_size = 50
    instance.browser = "firefox"
-   
--- Widget configuration
+-- Smart Update (sets timer to check/update widget near when the current track should end)
+   instance.track_position = "00:00"
+   instance.track_duration = "00:00"
+   instance.smart_update_timer = timer({ timeout = instance.update_interval })
+   -- Widget configuration
    instance.widget:connect_signal("mouse::enter", function(c)
                                                  instance:notify_track()
                                               end)
@@ -941,6 +944,11 @@ function awesompd:notify_disconnect()
 		 " on port " .. self.servers[self.current_server].port)
 end
 
+local function to_seconds(minsec)
+   local min, sec = minsec:match("(%d+):(%d+)")
+   return tonumber(min) * 60 + tonumber(sec)
+end
+
 function awesompd:update_track(file)
    local file_exists = (file ~= nil)
    if not file_exists then
@@ -1025,6 +1033,7 @@ function awesompd:update_track(file)
             end
 	 end
 	 local tmp_pst = string.find(status_line,"%d+%:%d+%/")
+	 self.track_position, self.track_duration = status_line:match("(%d+:%d+)/(%d+:%d+)")
 	 local progress = self.find_pattern(status_line,"%#%d+/%d+") .. " " .. string.sub(status_line,tmp_pst)
          local new_status = awesompd.PLAYING
 	 if string.find(status_line,"paused") then
@@ -1037,6 +1046,29 @@ function awesompd:update_track(file)
             self:update_widget_text()
 	 end
 	 self.status_text = self.status .. " " .. progress
+      end
+   end
+   self:smart_update()
+end
+
+function awesompd:smart_update()
+   -- Kill any set timers
+   if self.smart_update_timer.started then
+      self.smart_update_timer:stop()
+   end
+   if (self.status == awesompd.PLAYING) then
+      local pos = to_seconds(self.track_position)
+      local dur = to_seconds(self.track_duration)
+      local rem = (dur - pos) + 1
+      if (rem < self.update_interval) then
+	 -- Little time remaining, lets update when it runs out 
+	 local smart_timer = timer({ timeout = rem })
+	 smart_timer:connect_signal("timeout", function()
+	    smart_timer:stop()
+	    self:update_track()
+	 end)
+	 self.smart_update_timer = smart_timer
+	 smart_timer:start()
       end
    end
 end
