@@ -1200,7 +1200,7 @@ function awesompd:try_get_local_cover(current_file)
       local result
       -- First find the music directory in MPD configuration file
       local _, _, music_folder = string.find(
-         self.pread('cat ' .. self.mpd_config .. ' | grep -v "#" | grep music_directory', "*line"),
+         self.pread('cat ' .. self.mpd_config .. ' | grep -v ^"#" | grep music_directory', "*line"),
          'music_directory%s+"(.+)"')
       music_folder = music_folder .. "/"
       
